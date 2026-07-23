@@ -7,6 +7,17 @@ visual system.
 
 <img src="docs/kapsoon-home.png" alt="Kapsoon home screen: capsules left with a runway estimate, a large tap-to-log orb, weekly and monthly figures, and today's log" width="320">
 
+## Getting started
+
+```bash
+npm install
+npm run dev        # add `-- -H 0.0.0.0` to open it on your phone over LAN
+```
+
+First run seeds a small **synthetic sample** (`public/coffee-seed.json`) so the app has something to
+show; your own data lives in the browser's OPFS and never leaves the device. To move data between
+devices, use the in-app backup (file export or Google Drive) and restore.
+
 ## Scripts
 
 - `npm run dev` — dev server (add `-- -H 0.0.0.0` to test on your phone over LAN)
@@ -24,11 +35,24 @@ OPFS and is queried through `drizzle-orm/sqlite-proxy` — see `src/features/cof
 route. Removing those headers breaks persistence silently — the app renders with empty stock rather
 than erroring. Solid on Android/Chrome; weaker on iOS Safari.
 
-Backup is a JSON export of the movement log (`src/features/coffee/backup.ts`), written as `.txt`
-rather than `.json` so Android's share sheet accepts it — the bytes are JSON either way.
+## Backup
+
+There is no server, so the on-device log is the only copy — two ways to protect it:
+
+- **File export/restore** (`src/features/coffee/backup.ts`): a JSON snapshot of the movement log,
+  written as `.txt` rather than `.json` so Android's share sheet accepts it (the bytes are JSON
+  either way).
+- **Google Drive** (`src/features/coffee/drive/`): optional client-side backup to the user's own
+  Drive via the Google Identity Services token flow and the `drive.file` REST API — no backend, no
+  refresh token. Inert until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set; see that file's `client-id.ts`
+  and set the OAuth **Authorized JavaScript origins** to your dev/prod URLs.
 
 ## Deploy
 
-Vercel, linked to the `kapsoon` project. This checkout has **no git remote**, so deploys are
-CLI-driven from here (`npm run deploy:prod`) rather than push-to-build. The code exists only on
-this machine — the deployed build is not a backup.
+Deploys to Vercel (`npm run deploy:prod`, or connect the repo for push-to-build). Set
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` in the project env if you want Drive backup enabled (it's inlined at
+build time — redeploy after changing it).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

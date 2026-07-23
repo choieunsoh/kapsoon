@@ -5,7 +5,7 @@ dark-mode, installable PWA on Next.js 16. Single-user, offline-first, no account
 on the device. See [PRODUCT.md](PRODUCT.md) for who it's for and [DESIGN.md](DESIGN.md) for the
 visual system.
 
-<img src="docs/kapsoon-home.png" alt="Kapsoon home screen: capsules left with a runway estimate, a large tap-to-log orb, weekly and monthly figures, and today's log" width="320">
+<img src="docs/kapsoon-home.jpg" alt="Kapsoon home screen: capsules left with a runway estimate, a large tap-to-log orb, weekly and monthly figures, and today's log" width="320">
 
 ## Getting started
 

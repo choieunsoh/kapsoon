@@ -1,0 +1,137 @@
+[
+  {
+    "id": "opening-seed-001",
+    "shop": "Opening balance",
+    "brand": "Nespresso",
+    "beanName": "Arpeggio",
+    "delta": 20,
+    "price": 0,
+    "at": 1777622400000
+  },
+  {
+    "id": "seed-002",
+    "shop": "Bluecup",
+    "brand": "Lavazza",
+    "beanName": "Qualita Rossa",
+    "delta": 50,
+    "price": 39000,
+    "at": 1777795200000
+  },
+  {
+    "id": "seed-003",
+    "shop": "Coffee Corner",
+    "brand": "Nespresso",
+    "beanName": "Roma",
+    "delta": 30,
+    "price": 29000,
+    "at": 1779350400000
+  },
+  {
+    "id": "cup-004",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1777741200000
+  },
+  {
+    "id": "cup-005",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1777914000000
+  },
+  {
+    "id": "cup-006",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778000400000
+  },
+  {
+    "id": "cup-007",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778173200000
+  },
+  {
+    "id": "cup-008",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778346000000
+  },
+  {
+    "id": "cup-009",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778518800000
+  },
+  {
+    "id": "cup-010",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778691600000
+  },
+  {
+    "id": "cup-011",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1778950800000
+  },
+  {
+    "id": "cup-012",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1779210000000
+  },
+  {
+    "id": "cup-013",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1779555600000
+  },
+  {
+    "id": "cup-014",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1779814800000
+  },
+  {
+    "id": "cup-015",
+    "shop": "",
+    "brand": "",
+    "beanName": "",
+    "delta": -1,
+    "price": 0,
+    "at": 1780074000000
+  }
+]

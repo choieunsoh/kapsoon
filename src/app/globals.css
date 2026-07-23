@@ -1,0 +1,252 @@
+@import 'tailwindcss';
+
+/* ── Design tokens (dark-first) ───────────────────────────────────────────────
+   Values seeded from a getdesign.md design; token NAMES are the stable contract.
+   Swap --color-accent to reskin. One typeface (system sans) with tabular-nums for
+   figures — no mono (avoids slashed/dotted zero per house typography rules). */
+@theme {
+  --font-sans: var(--font-app), -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+
+  --color-bg: #101114;
+  --color-surface: #16181d;
+  --color-surface-2: #1e2128;
+  --color-border: #2a2d38;
+  --color-border-strong: #3a3e4c;
+  /* The top of the hairline ramp: for a line that IS the information rather than one that merely
+     separates two regions. border (1.38:1) and border-strong (1.77:1) are fine under a card or a
+     pill, where the shape is carried by a fill and the border only refines its edge — WCAG 2.2
+     1.4.11 doesn't reach them. An empty cell in the week grid has no fill, so its outline is the
+     entire graphic, and 3:1 applies. This is 3.27:1 on --color-bg: past the bar, and deliberately
+     close to it, because it must stay quieter than the faintest FILLED cell (3.17:1) — 28 mostly
+     empty cells outlined in --color-faint (4.68:1) would make "no coffee" the loudest thing in a
+     chart about drinking coffee.
+
+     A third case looks like it should qualify but doesn't: History's drink rows carry no fill
+     either, and are separated by --color-border hairlines at 1.41:1 on --color-bg — read literally
+     against "the shape is carried by a fill" above, that reads as a line with nothing else marking
+     it. It stays --color-border anyway, because each row is already independently parseable by its
+     leading time column and its label; the hairline SEPARATES two already-legible records rather
+     than being the only thing telling them apart, which is what the empty grid cell above actually
+     needs 3:1 for. Promoting it to --color-border-graphic would repeat that brighter line 30+ times
+     down a single screen, making the separators the loudest thing in the log — the identical
+     failure this comment already rules out for the week grid's empty cells, just triggered by
+     repetition instead of a blank fill. */
+  --color-border-graphic: #606579;
+
+  --color-text: #ecedf1;
+  --color-muted: #9da1b3;
+  --color-faint: #7a7e8f;
+
+  /* Coffee: warm espresso-caramel accent; dark-brown text keeps contrast on the light amber. */
+  --color-accent: #c78a4a;
+  --color-accent-hover: #b0763a;
+  --color-on-accent: #1a1206;
+
+  /* Destructive actions (delete confirm) — a muted red that reads on the dark surface. */
+  --color-danger: #e5645d;
+  /* Ink for text sitting ON the danger fill. White measured 3.33:1 there, under AA for 14px body
+     text; this is 5.85:1. Mirrors the --color-on-accent pattern rather than darkening --color-danger
+     itself, which also serves as the trash icon's hover colour at an already-correct 5.29:1. */
+  --color-on-danger: #180806;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  /* The sticky Header's height, declared rather than emergent. History's filter bar pins directly
+     beneath it and needs the exact number; a hard-coded 56px would silently detach the moment
+     anyone changed the header's padding, and no test would catch it. */
+  --header-h: 3.5rem;
+  /* WCAG 2.2 SC 2.4.11 (Focus Not Obscured). History's filter bar pins beneath the sticky Header,
+     both opaque, so without this the browser scrolls each newly-focused element flush to the
+     viewport edge — underneath both bars, with the :focus-visible ring painted below them. Tabbing
+     through 30 day-groups put every stop out of sight. 4.25rem covers the filter bar (16px padding
+     + 44px minimum target + 1px border = 61px) plus the header's own 1px border, with the remaining
+     2px+ allowance for :focus-visible's 2px outline at a 2px offset, whose ring otherwise sits 4px
+     above the element box and gets clipped by the bar. The bottom value matches the 6rem <main>
+     already uses to clear the fixed nav. */
+  scroll-padding-top: calc(env(safe-area-inset-top) + var(--header-h) + 4.25rem);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  color-scheme: dark;
+  /* Reserve the scrollbar gutter permanently. Views differ in height — Home scrolls, Settings
+     doesn't — so without this the classic desktop scrollbar appears and disappears between tabs,
+     changing the viewport width by ~15px and visibly shifting the centered 430px column sideways
+     on every switch. Phones use overlay scrollbars and never saw it; desktop did. */
+  scrollbar-gutter: stable;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Safe-area insets (S24 Ultra notch / home indicator, viewportFit: cover) are owned by the sticky
+     header (top) and bottom nav (bottom) so those bars sit flush against the screen edges. */
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  letter-spacing: -0.02em;
+}
+
+/* Figures: aligned digits on the same sans, plain zero. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Touch: interactive elements clear a 44px target. Checkboxes/radios are excluded —
+   a min-height taller than their fixed size distorts them; give them a 44px tap area
+   via a wrapping element instead. */
+button,
+a,
+input:not([type='checkbox']):not([type='radio']),
+[role='button'] {
+  min-height: 44px;
+  /* Without this, mobile browsers hold every tap open for the double-tap-zoom window before
+     dispatching it. On a tap-to-log product whose whole premise is a two-second interaction
+     repeated all day, that delay is the interaction. Zoom via pinch is unaffected. */
+  touch-action: manipulation;
+  /* Android paints a translucent grey box over the tapped element by default. The orb already
+     answers a press with a ring and a scale; the flash is a second, louder answer nobody asked for. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Motion keyframes ─────────────────────────────────────────────────────────
+   Reveal a new view, slide a sheet up, fade a backdrop in. All neutralized by the
+   reduced-motion block above. */
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tap feedback on Home's log button: one ring expands off the orb edge and fades out. It confirms
+   the cup registered and then shuts up — a confirmation, not a celebration (see PRODUCT.md's
+   anti-references: no streaks, no confetti, drinking coffee is not an achievement). The resting
+   state is opacity-0 so the reduced-motion path shows nothing at all rather than a stuck ring. */
+@keyframes orb-ping {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.16);
+  }
+}
+
+/* The orb's liquid surface. The wave is a MASK rather than a second coloured element: the gradient
+   beneath shows through it, so nothing has to be kept colour-matched as the level moves up and
+   down. Static at rest — this is a curved surface, not an animation. A wave that undulates forever
+   would be decoration, and the product register bans motion that doesn't convey state. */
+.orb-liquid {
+  -webkit-mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100' preserveAspectRatio='none'><path d='M0 8 Q 25 0 50 8 T 100 8 T 150 8 T 200 8 L 200 100 L 0 100 Z' fill='%23fff'/></svg>");
+  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100' preserveAspectRatio='none'><path d='M0 8 Q 25 0 50 8 T 100 8 T 150 8 T 200 8 L 200 100 L 0 100 Z' fill='%23fff'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Logging a cup makes the liquid overshoot its new level and tilt before settling. The motion is
+   tied to the action — it says the cup landed — and the surface is completely still between taps.
+   The tilt is small and the layer is over-sized horizontally and below, so rotating it never
+   exposes a gap at the clip edge. Neutralised by the reduced-motion block above. */
+@keyframes orb-slosh {
+  0% {
+    transform: translateY(9%) rotate(0deg);
+  }
+  40% {
+    transform: translateY(-3%) rotate(1.4deg);
+  }
+  70% {
+    transform: translateY(1.5%) rotate(-0.7deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* The count settles into place rather than snapping — the only motion that carries the new value. */
+@keyframes count-pop {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Native <dialog>s live in the top layer. Toggling [open] re-triggers the animation on each open:
+   bottom sheets (.sheet) slide up; centered dialogs fade + scale. */
+dialog.sheet[open] {
+  animation: sheet-in 260ms var(--ease-out);
+}
+
+dialog:not(.sheet)[open] {
+  animation: dialog-in 180ms var(--ease-out);
+}
+
+dialog::backdrop {
+  background: color-mix(in oklab, black 55%, transparent);
+  animation: backdrop-in var(--dur-fast) ease;
+}

@@ -1,0 +1,15 @@
+# Normalize every text file to LF in the repository AND in the working tree.
+#
+# Why this exists: this machine has core.autocrlf=true, so a checkout rewrote every file to CRLF,
+# while oxfmt writes and expects LF. The result was `npm run format:check` failing on all 36 files
+# immediately after a branch switch, with `git status` clean and `git diff` empty — the changes
+# were invisible because they were pure line endings. `eol=lf` pins the working tree too, so
+# autocrlf can no longer flip files back and the quality gate stays stable across checkouts/clones.
+* text=auto eol=lf
+
+# Binary assets — never touch their bytes.
+*.png binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.sqlite binary

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kapsoon">
+  <!-- Brand mark: a coffee capsule, dome up and foil flange down. Deliberately a
+       flat two-tone silhouette with no thin details, so it survives being rasterized down to a
+       16px favicon. Colors are the app's own tokens: color-bg tile, color-accent body, with a
+       lighter caramel on the flange for depth. Keep them in sync with globals.css by hand — an SVG
+       served from /public gets no CSS variables. Write token names bare, with no leading dashes:
+       XML forbids a double hyphen inside a comment, and one voids the entire file. -->
+  <rect width="512" height="512" rx="112" fill="#101114" />
+  <rect x="102" y="334" width="308" height="60" rx="21" fill="#e2ab6e" />
+  <path
+    d="M132 334 L164 201 C164 150 203 118 256 118 C309 118 348 150 348 201 L380 334 Z"
+    fill="#c78a4a"
+  />
+</svg>

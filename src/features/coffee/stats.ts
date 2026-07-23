@@ -1,0 +1,291 @@
+import { type Movement } from './db';
+import { dayKey, startOfDaysAgo, startOfMonthsAgo } from './datetime';
+
+// Pure derivations for the Dashboard: plain rows in, numbers out. No React, no DB access, no async,
+// no throws — every function is total, returning null where a number would be a lie (a zero burn
+// rate is not "0 days left", it's unknown). That's what makes this testable with array literals.
+//
+// `rows` arrive newest-first from listMovements; nothing here depends on the order.
+
+export type CupDay = {
+  at: number;
+  cups: number;
+};
+
+// Cups per local calendar day over the last `days` days, oldest→newest. Always returns exactly
+// `days` entries: a day with no coffee is a zero-cup entry, never a missing one, so the chart shows
+// gaps as gaps instead of silently compressing the timeline.
+export function dailyCups(rows: Pick<Movement, 'delta' | 'at'>[], days: number): CupDay[] {
+  // Bucket by local day key first (one pass), then read the window off it — keeps this O(n + days)
+  // instead of scanning every row once per day.
+  const counts = new Map<string, number>();
+  for (const m of rows) {
+    if (m.delta >= 0) continue;
+    const key = dayKey(m.at);
+    counts.set(key, (counts.get(key) ?? 0) + -m.delta);
+  }
+
+  const series: CupDay[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const at = startOfDaysAgo(i);
+    series.push({ at, cups: counts.get(dayKey(at)) ?? 0 });
+  }
+  return series;
+}
+
+// The mean of a daily series, for the chart's reference line. Zero-cup days stay in the divisor:
+// they're real days you didn't drink, and dropping them would answer "how much on days I drank" —
+// a different, much higher number than "how much a day".
+//
+// Deliberately NOT reused from db.ts's consumptionPerDay, which is what Home's runway and pace use:
+// that's a 14-day window and the chart draws 30, so borrowing it would put the line somewhere other
+// than the visual middle of its own bars. The two figures are meant to differ, which is why the
+// dashboard names its window on screen.
+export function averageCups(series: CupDay[]): number {
+  if (series.length === 0) return 0;
+  let total = 0;
+  for (const day of series) total += day.cups;
+  return total / series.length;
+}
+
+export type CapsuleCost = {
+  satang: number; // integer satang per capsule, all-time
+  cheapestShop: string | null;
+};
+
+// All-time cost per capsule, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging each order's own
+// per-capsule rate would let a single-capsule impulse buy pull the mean as hard as a 50-capsule
+// bulk order — the number people actually want is what a capsule costs on average, not what an
+// order costs on average.
+//
+// `cheapestShop` applies the same weighting per shop, so repeat visits aggregate before ranking.
+// Ties break toward the shop you've bought more from (the better-evidenced rate). Orders with an
+// empty shop still count toward the overall cost but can't be named, so they're skipped in ranking.
+//
+// A `price === 0` order is excluded entirely (overall average AND ranking): zero price carries no
+// price information, so it means "cost unknown" — e.g. an opening-balance row for stock you already
+// had — not "free". Averaging it in as free capsules would understate what a capsule actually costs
+// and let it win "cheapest shop" trivially.
+export function costPerCapsule(
+  rows: Pick<Movement, 'delta' | 'price' | 'shop'>[],
+): CapsuleCost | null {
+  let price = 0;
+  let capsules = 0;
+  const byShop = new Map<string, { price: number; capsules: number }>();
+
+  for (const m of rows) {
+    if (m.delta <= 0 || m.price === 0) continue;
+    price += m.price;
+    capsules += m.delta;
+    if (m.shop === '') continue;
+    const shop = byShop.get(m.shop) ?? { price: 0, capsules: 0 };
+    shop.price += m.price;
+    shop.capsules += m.delta;
+    byShop.set(m.shop, shop);
+  }
+
+  if (capsules === 0) return null;
+
+  let cheapestShop: string | null = null;
+  let cheapestRate = Number.POSITIVE_INFINITY;
+  let cheapestCapsules = 0;
+  for (const [name, shop] of byShop) {
+    const rate = shop.price / shop.capsules;
+    if (rate < cheapestRate || (rate === cheapestRate && shop.capsules > cheapestCapsules)) {
+      cheapestRate = rate;
+      cheapestCapsules = shop.capsules;
+      cheapestShop = name;
+    }
+  }
+
+  // Round only here: satang stays integer at the boundary, per the house money rule.
+  return { satang: Math.round(price / capsules), cheapestShop };
+}
+
+export type WeekGrid = {
+  // [band][weekday]. Four bands in the order night, morning, afternoon, evening; seven weekdays
+  // Monday-first. Shape is asserted in the tests rather than encoded in the type: a readonly
+  // 4-tuple of 7-tuples cannot be built without a cast, and casts are banned house-wide.
+  cells: number[][];
+  // Largest single cell, floored at 1 so a caller scaling by it never divides by zero on an empty
+  // log. Returned rather than recomputed by every caller, which would walk the grid a second time.
+  max: number;
+};
+
+const BANDS = 4;
+const WEEKDAYS = 7;
+
+// When you drink, split by weekday AND time of day, over the last `days` local days. Consumption
+// only — when you *bought* capsules says nothing about the habit. Bands read off the local hour via
+// getHours(), following the device timezone the same way the rest of datetime.ts does.
+//
+// The four time-of-day bands are this grid's row sums — it absorbed a separate time-of-day
+// derivation rather than sitting beside one. A standalone day-of-week stat would have been a second
+// pass over the same rows producing a second block, on a page whose actual problem is block count.
+export function weekGrid(rows: Pick<Movement, 'delta' | 'at'>[], days = 30): WeekGrid {
+  const since = startOfDaysAgo(days - 1);
+  const cells: number[][] = [];
+  // Array.from, not `new Array(n).fill(0)`: the latter builds a sparse array before filling it, and
+  // oxlint's unicorn/no-new-array rejects the single-argument form outright.
+  for (let band = 0; band < BANDS; band++) cells.push(Array.from({ length: WEEKDAYS }, () => 0));
+
+  let max = 0;
+  for (const m of rows) {
+    if (m.delta >= 0 || m.at < since) continue;
+    const at = new Date(m.at);
+    const hour = at.getHours();
+    const band = hour < 6 ? 0 : hour < 12 ? 1 : hour < 18 ? 2 : 3;
+    // getDay() is Sunday-first (0 = Sunday); the grid is Monday-first, so Sunday moves to index 6.
+    const weekday = (at.getDay() + 6) % WEEKDAYS;
+    const row = cells[band];
+    if (row === undefined) continue;
+    const next = (row[weekday] ?? 0) + -m.delta;
+    row[weekday] = next;
+    if (next > max) max = next;
+  }
+
+  return { cells, max: Math.max(max, 1) };
+}
+
+export type MonthSpend = {
+  at: number; // local midnight on the 1st of the month
+  satang: number; // integer satang actually spent that month
+};
+
+// What you ACTUALLY paid, per local calendar month, oldest→newest. Deliberately calendar months
+// rather than a rolling window: a bar series needs stable, comparable buckets, and a rolling window
+// drawn as bars would have every bar mean something slightly different.
+//
+// This is cash, not the accrual rate that habitCost reports. The two genuinely differ — you drink
+// every day and buy every three weeks — and the labels on screen are what keep them from reading as
+// a contradiction.
+export function spendByMonth(
+  rows: Pick<Movement, 'delta' | 'price' | 'at'>[],
+  months: number,
+): MonthSpend[] {
+  const series: MonthSpend[] = [];
+  for (let i = months - 1; i >= 0; i--) series.push({ at: startOfMonthsAgo(i), satang: 0 });
+
+  for (const m of rows) {
+    if (m.delta <= 0) continue;
+    // Walk newest-first and take the first bucket that starts at or before the order. An order
+    // older than the oldest bucket matches nothing and is correctly dropped.
+    for (let i = series.length - 1; i >= 0; i--) {
+      const bucket = series[i];
+      if (bucket === undefined) continue;
+      if (m.at >= bucket.at) {
+        bucket.satang += m.price;
+        break;
+      }
+    }
+  }
+
+  return series;
+}
+
+export type OrderCadence = {
+  // null with fewer than two orders — a single order has no gap to measure, and reporting 0 would
+  // read as "you order every day".
+  medianGapDays: number | null;
+  daysSinceLast: number; // whole local days, floored
+};
+
+const MS_PER_DAY = 86_400_000;
+
+// How often you restock, and how long since you last did. Null when nothing has ever been ordered.
+//
+// MEDIAN, not mean: one stock-up trip after an unusually long absence should not redefine the
+// cadence, and with a handful of orders the mean is dominated by exactly that outlier. With an even
+// number of gaps the median is the mean of the two middle values.
+//
+// `now` is a parameter rather than a Date.now() call so the behaviour is pinnable in tests, matching
+// consumptionPerDay in db.ts. Rows are sorted rather than assumed ordered: they arrive newest-first
+// from listMovements, and every other function here is order-independent.
+export function orderCadence(
+  rows: Pick<Movement, 'delta' | 'at'>[],
+  now = Date.now(),
+): OrderCadence | null {
+  const times: number[] = [];
+  for (const m of rows) if (m.delta > 0) times.push(m.at);
+  if (times.length === 0) return null;
+
+  times.sort((a, b) => a - b);
+  const last = times[times.length - 1];
+  if (last === undefined) return null;
+  const daysSinceLast = Math.max(0, Math.floor((now - last) / MS_PER_DAY));
+
+  if (times.length < 2) return { medianGapDays: null, daysSinceLast };
+
+  const gaps: number[] = [];
+  for (let i = 1; i < times.length; i++) {
+    const previous = times[i - 1];
+    const current = times[i];
+    if (previous === undefined || current === undefined) continue;
+    gaps.push((current - previous) / MS_PER_DAY);
+  }
+
+  gaps.sort((a, b) => a - b);
+  const middle = Math.floor(gaps.length / 2);
+  const upper = gaps[middle];
+  const lower = gaps[middle - 1];
+  if (upper === undefined) return { medianGapDays: null, daysSinceLast };
+  const median = gaps.length % 2 === 1 || lower === undefined ? upper : (lower + upper) / 2;
+
+  return { medianGapDays: Math.round(median), daysSinceLast };
+}
+
+export type HabitCost = {
+  perCapsule: number; // integer satang, ALL-TIME, quantity-weighted
+  // What that price adds up to at the current drinking rate. NULL when the rate is zero — the two
+  // figures are one fact ("what the habit costs to run") and they stand or fall together, so they
+  // live under one nullable key rather than as two independently-nullable numbers a caller could
+  // narrow half of. See the rationale on `habitCost`.
+  rate: {
+    perDay: number; // integer satang, price × the `days`-window drinking rate
+    perMonth: number; // integer satang, the same rate over 30 days
+  } | null;
+  cheapestShop: string | null;
+};
+
+// What the habit costs: the price of a capsule, and what that price times your current drinking rate
+// adds up to per day and per month.
+//
+// TWO WINDOWS, DELIBERATELY. The price is ALL-TIME; the rate is the rolling `days` window. These are
+// different kinds of fact — what a capsule costs moves slowly and is best estimated from all
+// history, while how fast you drink is a current behaviour. Forcing the price to 30 days means that
+// after four weeks without reordering (entirely normal at a ~21-day cadence) the price is null and
+// the whole cost section collapses to dashes, on a page whose stated job is what this costs. The
+// labels on screen state both windows; see the spec's Deviation section.
+//
+// perDay uses the ROUNDED per-capsule price on purpose, so the three figures reconcile with what is
+// actually printed. perMonth is computed from the rate directly rather than as perDay * 30, which
+// would multiply a sub-satang rounding error thirty-fold.
+//
+// A ZERO RATE RETURNS null, not zero — this module's rule that a number which would be a lie is
+// returned as null, applied to the one place it previously wasn't. With orders on file but no cups
+// in the window (a month away, a switch to another machine), price × 0 printed "about ฿0.00 a day ·
+// ฿0.00 a month" under a real per-capsule price, which does not read as "unknown" — it reads as a
+// claim that the habit is now free, sitting directly beneath the evidence that it isn't. db.ts's
+// consumptionPerDay already returns null for exactly this case and HomeView already guards on it;
+// this is the same rule reaching the last function that skipped it.
+export function habitCost(
+  rows: Pick<Movement, 'delta' | 'price' | 'shop' | 'at'>[],
+  days = 30,
+): HabitCost | null {
+  const cost = costPerCapsule(rows);
+  if (cost === null) return null;
+
+  const cupsPerDay = averageCups(dailyCups(rows, days));
+
+  return {
+    perCapsule: cost.satang,
+    rate:
+      cupsPerDay === 0
+        ? null
+        : {
+            perDay: Math.round(cost.satang * cupsPerDay),
+            perMonth: Math.round(cost.satang * cupsPerDay * 30),
+          },
+    cheapestShop: cost.cheapestShop,
+  };
+}

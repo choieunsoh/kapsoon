@@ -22,9 +22,11 @@
 ### Task 1: `setStockBadge` device helper
 
 **Files:**
+
 - Modify: `src/features/coffee/db.ts` (add after `isStoragePersisted`, ~line 329, alongside the other navigator-guarded helpers)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `export async function setStockBadge(count: number): Promise<void>` — sets the app-icon badge to `count` when `count > 0`, clears it otherwise; guarded and error-swallowing.
 
@@ -71,9 +73,11 @@ git commit -m "feat(coffee): add setStockBadge Web Badging helper"
 ### Task 2: Call `setStockBadge` from `refresh()`
 
 **Files:**
+
 - Modify: `src/features/coffee/use-coffee.ts:5-22` (import), `:45-55` (`refresh`)
 
 **Interfaces:**
+
 - Consumes: `setStockBadge(count)` from Task 1; `stockLevel(rows)` (already imported).
 - Produces: nothing new — `refresh()` keeps its signature.
 
@@ -92,16 +96,16 @@ In `src/features/coffee/use-coffee.ts`, add `setStockBadge,` to the existing nam
 `refresh` already computes `stockLevel(rows)` and passes it to `setStock`. Capture it once and badge it. Replace the `setStock(stockLevel(rows));` line with:
 
 ```typescript
-    const stock = stockLevel(rows);
-    setStock(stock);
+const stock = stockLevel(rows);
+setStock(stock);
 ```
 
 and add, as the last statement inside the `refresh` callback (after `setBackup(...)`):
 
 ```typescript
-    // Fire-and-forget: keep the icon badge in sync with the stash on every write. Not awaited —
-    // the UI must not wait on a home-screen paint, and setStockBadge swallows its own failures.
-    void setStockBadge(stock);
+// Fire-and-forget: keep the icon badge in sync with the stash on every write. Not awaited —
+// the UI must not wait on a home-screen paint, and setStockBadge swallows its own failures.
+void setStockBadge(stock);
 ```
 
 - [ ] **Step 3: Verify types, lint, tests**
@@ -121,10 +125,12 @@ git commit -m "feat(coffee): badge the app icon with capsules left on every refr
 ### Task 3: `orderSuggestions` pure reducer
 
 **Files:**
+
 - Modify: `src/features/coffee/stats.ts` (add at end of file)
 - Test: `src/features/coffee/stats.test.ts` (add one `test(...)`)
 
 **Interfaces:**
+
 - Consumes: `Movement` type (already imported in `stats.ts` as `type Movement`).
 - Produces: `export type OrderSuggestions = { shops: string[]; brands: string[]; beans: string[] }` and `export function orderSuggestions(rows: Pick<Movement, 'delta' | 'shop' | 'brand' | 'beanName'>[]): OrderSuggestions` — distinct, non-empty, locale-sorted values drawn from order rows (`delta > 0`) only.
 
@@ -215,10 +221,12 @@ git commit -m "feat(coffee): add orderSuggestions reducer for order autocomplete
 ### Task 4: Wire `<datalist>` autocomplete into `AddOrderSheet`
 
 **Files:**
+
 - Modify: `src/features/coffee/components/AddOrderSheet.tsx` (props, derive suggestions, three inputs + datalists)
 - Modify: `src/features/coffee/components/Coffee.tsx:58` (pass `movements`)
 
 **Interfaces:**
+
 - Consumes: `orderSuggestions(rows)` / `OrderSuggestions` from Task 3; `Movement` (already imported in `AddOrderSheet`).
 - Produces: `AddOrderSheet` gains a required `movements: Movement[]` prop.
 
@@ -249,9 +257,9 @@ import { orderSuggestions } from '../stats';
 Inside the component, after `const editing = movement != null;` (~line 39):
 
 ```typescript
-  // Derived every render — the list is tiny (distinct shops/brands/beans) and recomputing it is
-  // cheaper than a memo's bookkeeping. Native <datalist> filters as the user types; no JS.
-  const suggestions = orderSuggestions(movements);
+// Derived every render — the list is tiny (distinct shops/brands/beans) and recomputing it is
+// cheaper than a memo's bookkeeping. Native <datalist> filters as the user types; no JS.
+const suggestions = orderSuggestions(movements);
 ```
 
 - [ ] **Step 3: Wire the three text inputs to datalists**
@@ -318,12 +326,12 @@ For the **bean** input (~line 149), replace with:
 In `src/features/coffee/components/Coffee.tsx:58`, add the prop:
 
 ```tsx
-      <AddOrderSheet
-        open={addOpen}
-        movements={coffee.movements}
-        onClose={() => setAddOpen(false)}
-        onSubmit={coffee.addOrder}
-      />
+<AddOrderSheet
+  open={addOpen}
+  movements={coffee.movements}
+  onClose={() => setAddOpen(false)}
+  onSubmit={coffee.addOrder}
+/>
 ```
 
 - [ ] **Step 5: Verify types, lint, format, tests, build**
@@ -365,6 +373,7 @@ Per project convention, confirm with the user before pushing/PR.
 ## Self-Review
 
 **Spec coverage:**
+
 - Feature 1 (badge helper + call in refresh) → Tasks 1, 2. ✓
 - Feature 2 (`orderSuggestions` reducer + `<datalist>` wiring + call-site prop) → Tasks 3, 4. ✓
 - Testing (unit test for `orderSuggestions`; `setStockBadge` covered by the light navigator-guard touch, no dedicated test) → Task 3 test; Task 1 relies on typecheck/lint, matching `requestPersistence`. ✓

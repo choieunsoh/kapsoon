@@ -55,7 +55,12 @@ export function Coffee() {
         moreAlert={coffee.backup.overdue}
       />
 
-      <AddOrderSheet open={addOpen} onClose={() => setAddOpen(false)} onSubmit={coffee.addOrder} />
+      <AddOrderSheet
+        open={addOpen}
+        movements={coffee.movements}
+        onClose={() => setAddOpen(false)}
+        onSubmit={coffee.addOrder}
+      />
       <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} onTab={setTab} />
     </div>
   );

@@ -3,12 +3,16 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Movement } from '../db';
 import { parseBahtToSatang } from '../money';
+import { orderSuggestions } from '../stats';
 
 type Props = {
   open: boolean;
   // When set, the sheet edits this order instead of creating a new one: fields prefill from it and
   // the title/submit label change. The caller supplies an onSubmit closed over the row's id.
   movement?: Movement | null;
+  // Past movements, for order-field autocomplete. Passed in (not queried) because the parent
+  // already holds the full list — see Coffee.tsx.
+  movements: Movement[];
   onClose: () => void;
   onSubmit: (
     shop: string,
@@ -26,7 +30,7 @@ const labelClass = 'mb-1 block text-sm font-medium text-[var(--color-muted)]';
 // Bottom sheet for logging an order. Rendered as a native <dialog> so showModal() puts it in the
 // browser's top layer — above the sticky nav/header, with a free backdrop + focus trap, no z-index
 // juggling and no clipping by the 430px column's overflow.
-export function AddOrderSheet({ open, movement, onClose, onSubmit }: Props) {
+export function AddOrderSheet({ open, movement, movements, onClose, onSubmit }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const uid = useId();
   const [shop, setShop] = useState('');
@@ -37,6 +41,10 @@ export function AddOrderSheet({ open, movement, onClose, onSubmit }: Props) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const editing = movement != null;
+
+  // Derived every render — the list is tiny (distinct shops/brands/beans) and recomputing it is
+  // cheaper than a memo's bookkeeping. Native <datalist> filters as the user types; no JS.
+  const suggestions = orderSuggestions(movements);
 
   // Drive the real dialog element from the `open` prop.
   useEffect(() => {
@@ -120,12 +128,18 @@ export function AddOrderSheet({ open, movement, onClose, onSubmit }: Props) {
           </label>
           <input
             id={`${uid}-shop`}
+            list={`${uid}-shops`}
             value={shop}
             onChange={(e) => setShop(e.target.value)}
             placeholder="e.g. Amazon"
             autoComplete="off"
             className={fieldClass}
           />
+          <datalist id={`${uid}-shops`}>
+            {suggestions.shops.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -135,12 +149,18 @@ export function AddOrderSheet({ open, movement, onClose, onSubmit }: Props) {
             </label>
             <input
               id={`${uid}-brand`}
+              list={`${uid}-brands`}
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="Starbucks"
               autoComplete="off"
               className={fieldClass}
             />
+            <datalist id={`${uid}-brands`}>
+              {suggestions.brands.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
           </div>
           <div>
             <label htmlFor={`${uid}-bean`} className={labelClass}>
@@ -148,12 +168,18 @@ export function AddOrderSheet({ open, movement, onClose, onSubmit }: Props) {
             </label>
             <input
               id={`${uid}-bean`}
+              list={`${uid}-beans`}
               value={beanName}
               onChange={(e) => setBeanName(e.target.value)}
               placeholder="House Blend"
               autoComplete="off"
               className={fieldClass}
             />
+            <datalist id={`${uid}-beans`}>
+              {suggestions.beans.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
           </div>
         </div>
 

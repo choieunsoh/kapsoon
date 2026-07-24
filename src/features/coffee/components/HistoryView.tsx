@@ -265,6 +265,7 @@ export function HistoryView({ coffee, onAdd }: { coffee: UseCoffee; onAdd: () =>
       <AddOrderSheet
         open={editingOrder !== null}
         movement={editingOrder}
+        movements={movements}
         onClose={() => setEditingOrder(null)}
         onSubmit={async (shop, brand, beanName, quantity, price) => {
           if (editingOrder)

@@ -1,5 +1,5 @@
 import { type Movement } from './db';
-import { dayKey, startOfDaysAgo, startOfMonthsAgo } from './datetime';
+import { dayKey, startOfDaysAgo, startOfMonth, startOfMonthsAgo } from './datetime';
 
 // Pure derivations for the Dashboard: plain rows in, numbers out. No React, no DB access, no async,
 // no throws — every function is total, returning null where a number would be a lie (a zero burn
@@ -321,4 +321,66 @@ export function orderSuggestions(
     if (m.beanName !== '') beans.add(m.beanName);
   }
   return { shops: sortedValues(shops), brands: sortedValues(brands), beans: sortedValues(beans) };
+}
+
+export type MonthGrid = {
+  at: number; // local midnight on the 1st of the month
+  days: number[]; // cups per day-of-month, 1-indexed (days[1] = the 1st); index 0 unused
+};
+
+export type MonthGrids = {
+  months: MonthGrid[]; // newest month first
+  max: number; // largest single-day cup count across ALL months, floored at 1
+};
+
+// Which calendar days you drank, laid out as month grids for the Dashboard. Consumption only
+// (delta < 0). Months are CONTIGUOUS from the current month back to the month of the earliest cup:
+// a dormant month in between is an all-zero grid, never skipped, so the timeline can't silently
+// compress (same rule as dailyCups zero-filling days). `max` is the busiest single day across ALL
+// months, floored at 1, so one global shade scale means a dark cell reads the same in every month.
+//
+// Reads the clock (startOfMonth, and `new Date()` for day timestamps). Safe for the same reason the
+// rest of the dashboard's clock-reading stats are: movements is [] on the server and on the client's
+// first render (use-coffee loads in a mount effect), so DashboardView's movements.length === 0 early
+// return fires on both passes and this never runs during hydration.
+export function monthGrids(rows: Pick<Movement, 'delta' | 'at'>[]): MonthGrids {
+  // One pass: bucket consumption by local day key and remember the earliest cup.
+  const perDay = new Map<string, number>();
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const m of rows) {
+    if (m.delta >= 0) continue;
+    perDay.set(dayKey(m.at), (perDay.get(dayKey(m.at)) ?? 0) + -m.delta);
+    if (m.at < earliest) earliest = m.at;
+  }
+
+  if (perDay.size === 0) return { months: [], max: 1 };
+
+  const start = new Date(earliest);
+  const startYear = start.getFullYear();
+  const startMonth = start.getMonth();
+
+  const months: MonthGrid[] = [];
+  let max = 0;
+  // startOfMonth() is local midnight on the 1st of the current month; keeping the cursor on the 1st
+  // means setMonth(-1) can't overflow (the 31st→wrong-month trap datetime.ts documents).
+  const cursor = new Date(startOfMonth());
+  while (
+    cursor.getFullYear() > startYear ||
+    (cursor.getFullYear() === startYear && cursor.getMonth() >= startMonth)
+  ) {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    // Day 0 of the next month is the last day of this one — the day count, without a lookup table.
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days = Array.from({ length: daysInMonth + 1 }, () => 0);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cups = perDay.get(dayKey(new Date(year, month, d).getTime())) ?? 0;
+      days[d] = cups;
+      if (cups > max) max = cups;
+    }
+    months.push({ at: cursor.getTime(), days });
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+
+  return { months, max: Math.max(max, 1) };
 }

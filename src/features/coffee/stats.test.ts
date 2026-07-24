@@ -11,6 +11,7 @@ import {
   costPerCapsule,
   dailyCups,
   habitCost,
+  monthGrids,
   orderCadence,
   orderSuggestions,
   spendByMonth,
@@ -520,4 +521,81 @@ test('orderSuggestions returns distinct sorted values from orders only', () => {
 
   // Empty log → three empty lists, never undefined.
   expect(orderSuggestions([])).toEqual({ shops: [], brands: [], beans: [] });
+});
+
+const HOUR = 3_600_000;
+
+test('monthGrids on an empty log has no months', () => {
+  expect(monthGrids([])).toEqual({ months: [], max: 1 });
+});
+
+// Cups only. An order carries no cup, so a log of pure orders has nothing to lay out.
+test('monthGrids ignores orders', () => {
+  expect(monthGrids([{ delta: 30, at: startOfToday() + 9 * HOUR }])).toEqual({
+    months: [],
+    max: 1,
+  });
+});
+
+test('monthGrids buckets this month by day-of-month and ignores orders in the same day', () => {
+  const todayDate = new Date(startOfToday()).getDate();
+  const data = monthGrids([
+    { delta: -2, at: startOfToday() + 9 * HOUR },
+    { delta: -1, at: startOfToday() + 20 * HOUR },
+    { delta: 50, at: startOfToday() + 10 * HOUR }, // an order — must not count
+  ]);
+
+  expect(data.months).toHaveLength(1);
+  expect(data.months[0]?.at).toBe(startOfMonth());
+  expect(data.months[0]?.days[todayDate]).toBe(3);
+  expect(data.max).toBe(3);
+});
+
+// The local-day guard: a cup at the very first millisecond of the local day lands on that day,
+// not the day before (which a UTC bucketing would give east of Greenwich). Mirrors the dailyCups
+// midnight test.
+test('monthGrids buckets a cup by its local calendar day, not UTC', () => {
+  const todayDate = new Date(startOfToday()).getDate();
+  const data = monthGrids([{ delta: -1, at: startOfToday() }]);
+
+  expect(data.months[0]?.days[todayDate]).toBe(1);
+});
+
+test('monthGrids spans contiguous months, newest first', () => {
+  const data = monthGrids([
+    { delta: -1, at: startOfToday() + 9 * HOUR }, // this month
+    { delta: -1, at: startOfMonthsAgo(1) + 9 * HOUR }, // 09:00 on the 1st of last month
+  ]);
+
+  expect(data.months).toHaveLength(2);
+  expect(data.months[0]?.at).toBe(startOfMonth());
+  expect(data.months[1]?.at).toBe(startOfPrevMonth());
+  expect(data.months[1]?.days[1]).toBe(1); // the 1st of last month
+});
+
+// A dormant month between two active ones is present as an all-zero grid, never skipped — else the
+// timeline silently compresses, the same failure dailyCups guards against by zero-filling days.
+test('monthGrids keeps a dormant middle month as an all-zero grid', () => {
+  const data = monthGrids([
+    { delta: -1, at: startOfToday() + 9 * HOUR },
+    { delta: -1, at: startOfMonthsAgo(2) + 9 * HOUR },
+  ]);
+
+  expect(data.months).toHaveLength(3);
+  expect(data.months[1]?.at).toBe(startOfMonthsAgo(1));
+  expect(data.months[1]?.days.every((c) => c === 0)).toBe(true);
+});
+
+// One global scale, not per-month: a heavy day two months ago sets the max a light recent day is
+// shaded against, so a dark cell means the same cup-count everywhere.
+test('monthGrids scales max globally across every month', () => {
+  const todayDate = new Date(startOfToday()).getDate();
+  const data = monthGrids([
+    { delta: -1, at: startOfToday() + 9 * HOUR }, // light, recent
+    { delta: -5, at: startOfMonthsAgo(2) + 9 * HOUR }, // heavy, old
+  ]);
+
+  expect(data.max).toBe(5);
+  expect(data.months[0]?.days[todayDate]).toBe(1);
+  expect(data.months[2]?.days[1]).toBe(5);
 });

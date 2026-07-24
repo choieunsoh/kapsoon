@@ -328,6 +328,26 @@ export async function isStoragePersisted(): Promise<boolean> {
   }
 }
 
+// Paint the current capsule count on the installed PWA's home-screen icon (Web Badging API). This
+// is the only thing that reaches the user while the app is closed, which is the whole point of the
+// runway — so a healthy stash shows a number and an empty one clears the badge rather than showing
+// 0. Guarded + fire-and-forget like requestPersistence: the API is absent on desktop/older webviews
+// and setAppBadge can reject, and a missing badge is a weaker guarantee, not an error. The badge is
+// only ever as fresh as the last log, because nothing runs while the app is closed — correct, since
+// stock only changes when you log a cup or an order, both of which route through refresh().
+export async function setStockBadge(count: number): Promise<void> {
+  if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
+  try {
+    if (count > 0) {
+      await navigator.setAppBadge(count);
+    } else {
+      await navigator.clearAppBadge();
+    }
+  } catch {
+    // No badge available (unsupported, or the tab isn't an installed PWA) — carry on.
+  }
+}
+
 const LAST_BACKUP_KEY = 'coffee-last-backup-at';
 
 // Epoch-ms of the last successful export, or null when never backed up or the stored value is

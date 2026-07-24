@@ -78,8 +78,8 @@ function MonthTable({ month, max, today }: { month: MonthGrid; max: number; toda
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
   return (
-    // table-fixed so every column is equal width — width must not read as quantity (see WeekGrid's
-    // note; colour is the only thing that varies here).
+    // table-fixed so every column is equal width — width must not read as quantity; colour is the
+    // only thing that varies here.
     <table className="w-full table-fixed border-separate border-spacing-1">
       <caption className="mb-1 text-left text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]">
         {monthLabel.format(month.at)}

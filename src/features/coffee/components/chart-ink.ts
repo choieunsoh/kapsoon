@@ -4,7 +4,7 @@
 //
 // This lives in its own module rather than beside any one chart because it is a PROOF, not a taste
 // call: it is the output of sRGB alpha-compositing arithmetic against two specific tokens, and it
-// binds every chart drawn in the accent. Held privately by WeekGrid, it went unseen by the two
+// binds every chart drawn in the accent. Once held privately by the weekday grid, it went unseen by the two
 // sibling charts, which drifted to 0.5 and failed. Anything that recedes an accent-on-background
 // mark imports this; anything that changes --color-accent or --color-bg re-derives it.
 export const ACCENT_INK_FLOOR = 0.62;

@@ -6,14 +6,14 @@ import {
   averageCups,
   dailyCups,
   habitCost,
+  monthGrids,
   orderCadence,
   spendByMonth,
-  weekGrid,
   type MonthSpend,
 } from '../stats';
 import { ACCENT_INK_FLOOR } from './chart-ink';
+import { MonthCalendar } from './MonthCalendar';
 import { TrendChart } from './TrendChart';
-import { WeekGrid } from './WeekGrid';
 
 const number = new Intl.NumberFormat('en-US');
 const oneDecimal = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -60,7 +60,7 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
   const cost = habitCost(movements, WINDOW_DAYS);
   const spend = spendByMonth(movements, SPEND_MONTHS);
   const cadence = orderCadence(movements);
-  const grid = weekGrid(movements, WINDOW_DAYS);
+  const calendar = monthGrids(movements);
 
   const first = series[0];
   const last = series[series.length - 1];
@@ -199,7 +199,7 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
         <h2 className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]">
           When you drink
         </h2>
-        <WeekGrid grid={grid} />
+        <MonthCalendar data={calendar} />
       </div>
     </section>
   );

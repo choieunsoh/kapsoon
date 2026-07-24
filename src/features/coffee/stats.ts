@@ -102,51 +102,6 @@ export function costPerCapsule(
   return { satang: Math.round(price / capsules), cheapestShop };
 }
 
-export type WeekGrid = {
-  // [band][weekday]. Four bands in the order night, morning, afternoon, evening; seven weekdays
-  // Monday-first. Shape is asserted in the tests rather than encoded in the type: a readonly
-  // 4-tuple of 7-tuples cannot be built without a cast, and casts are banned house-wide.
-  cells: number[][];
-  // Largest single cell, floored at 1 so a caller scaling by it never divides by zero on an empty
-  // log. Returned rather than recomputed by every caller, which would walk the grid a second time.
-  max: number;
-};
-
-const BANDS = 4;
-const WEEKDAYS = 7;
-
-// When you drink, split by weekday AND time of day, over the last `days` local days. Consumption
-// only — when you *bought* capsules says nothing about the habit. Bands read off the local hour via
-// getHours(), following the device timezone the same way the rest of datetime.ts does.
-//
-// The four time-of-day bands are this grid's row sums — it absorbed a separate time-of-day
-// derivation rather than sitting beside one. A standalone day-of-week stat would have been a second
-// pass over the same rows producing a second block, on a page whose actual problem is block count.
-export function weekGrid(rows: Pick<Movement, 'delta' | 'at'>[], days = 30): WeekGrid {
-  const since = startOfDaysAgo(days - 1);
-  const cells: number[][] = [];
-  // Array.from, not `new Array(n).fill(0)`: the latter builds a sparse array before filling it, and
-  // oxlint's unicorn/no-new-array rejects the single-argument form outright.
-  for (let band = 0; band < BANDS; band++) cells.push(Array.from({ length: WEEKDAYS }, () => 0));
-
-  let max = 0;
-  for (const m of rows) {
-    if (m.delta >= 0 || m.at < since) continue;
-    const at = new Date(m.at);
-    const hour = at.getHours();
-    const band = hour < 6 ? 0 : hour < 12 ? 1 : hour < 18 ? 2 : 3;
-    // getDay() is Sunday-first (0 = Sunday); the grid is Monday-first, so Sunday moves to index 6.
-    const weekday = (at.getDay() + 6) % WEEKDAYS;
-    const row = cells[band];
-    if (row === undefined) continue;
-    const next = (row[weekday] ?? 0) + -m.delta;
-    row[weekday] = next;
-    if (next > max) max = next;
-  }
-
-  return { cells, max: Math.max(max, 1) };
-}
-
 export type MonthSpend = {
   at: number; // local midnight on the 1st of the month
   satang: number; // integer satang actually spent that month

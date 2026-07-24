@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import type { Movement } from './db';
 import { ACCENT_INK_FLOOR } from './components/chart-ink';
@@ -81,21 +81,6 @@ function drinkerWithGap(): Movement[] {
     rows.push(drink(d, 9, `g${d}a`), drink(d, 15, `g${d}b`));
   }
   return rows;
-}
-
-// Three drinks at the same weekday seven days apart land in one grid cell (band × weekday); four more
-// at the adjacent weekday land in another. Both counts are known without needing to know which real
-// calendar weekday "today" happens to be when the test runs.
-function gridFixture(): Movement[] {
-  return [
-    drink(0, 9, 'w0'),
-    drink(7, 9, 'w7'),
-    drink(14, 9, 'w14'),
-    drink(1, 19, 'x1'),
-    drink(8, 19, 'x8'),
-    drink(15, 19, 'x15'),
-    drink(22, 19, 'x22'),
-  ];
 }
 
 test('an empty log says so once rather than showing a page of zeros', () => {
@@ -190,18 +175,16 @@ test('two orders report the gap between them', () => {
   expect(screen.getByText(/every ~21 days/)).toBeInTheDocument();
 });
 
-// The grid carries its values as colour, so every count must also be readable as text or the block
-// is inaccessible by construction. Structure alone (caption + headers) doesn't prove that — this
-// asserts the actual numbers gridFixture() put in two specific cells are present as text within the
-// table, which is what the sr-only count span exists to guarantee.
-test('the grid is a table whose cells carry their counts as text', () => {
-  render(<DashboardView coffee={coffeeWith({ movements: gridFixture() })} />);
+// The calendar carries each day's count as colour, so every count must also be readable as text or
+// the block is inaccessible by construction. steadyDrinker() drinks two a day, so at least one
+// "...: 2 capsules" label must be present, inside a month table.
+test('the calendar renders month tables that carry each day count as text', () => {
+  render(<DashboardView coffee={coffeeWith({ movements: steadyDrinker() })} />);
 
-  const table = screen.getByRole('table', { name: /Capsules by weekday and time of day/ });
-  expect(screen.getAllByRole('columnheader')).toHaveLength(7);
-  expect(screen.getAllByRole('rowheader')).toHaveLength(4);
-  expect(within(table).getByText('3')).toBeInTheDocument();
-  expect(within(table).getByText('4')).toBeInTheDocument();
+  expect(screen.getAllByRole('table').length).toBeGreaterThan(0);
+  // 7 weekday column headers per month table.
+  expect(screen.getAllByRole('columnheader').length % 7).toBe(0);
+  expect(screen.getAllByText(/: 2 capsules/).length).toBeGreaterThan(0);
 });
 
 // TrendChart had zero coverage: every existing test rendered it but asserted only on
@@ -241,13 +224,13 @@ test('a zero-cup day still renders a bar at the 2% minimum height', () => {
   expect(screen.getByLabelText(label)).toHaveStyle({ height: '2%' });
 });
 
-// A page that logged cups but never an order still has a trend and a rhythm to show; only the cost
+// A page that logged cups but never an order still has a trend and a calendar to show; only the cost
 // block should degrade.
-test('a log with no orders still renders the trend and the grid', () => {
+test('a log with no orders still renders the trend and the calendar', () => {
   render(<DashboardView coffee={coffeeWith({ movements: steadyDrinker() })} />);
 
   expect(screen.getByText(/capsules a day/)).toBeInTheDocument();
-  expect(screen.getByRole('table')).toBeInTheDocument();
+  expect(screen.getAllByRole('table').length).toBeGreaterThan(0);
 });
 
 // The order predates the 6-month spend window (SPEND_MONTHS) but is still priced all-time, so `cost`
@@ -281,7 +264,7 @@ test('an order with no cups in the window prints the price without a rate of zer
 // WCAG 2.2 1.4.11: a bar carrying the series is a graphical object and needs 3:1 against the page.
 // --color-accent over --color-bg reaches 3:1 at ACCENT_INK_FLOOR (0.62) and sits at 2.47:1 at the
 // 0.5 both bar charts used before. The failure was drift, not ignorance — the floor was derived once
-// inside WeekGrid and the two sibling charts never saw it — so the check is on every accent mark
+// inside the weekday grid and the two sibling charts never saw it — so the check is on every accent mark
 // this view draws, not on the one that happened to be wrong.
 test('every recessive accent bar is drawn at or above the 3:1 contrast floor', () => {
   // Pinned, not just referenced: asserting bars match the constant would still pass if the constant

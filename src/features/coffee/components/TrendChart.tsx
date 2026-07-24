@@ -18,7 +18,7 @@ export function TrendChart({ series, average }: { series: CupDay[]; average: num
   return (
     <div className="relative mt-4 h-28">
       {/* Named, because a list of 30 dated readings with no statement of what is being read is 30
-          numbers and no question answered. WeekGrid gets this from its <caption>; a <ul> has no
+          numbers and no question answered. MonthCalendar gets this from its <caption>; a <ul> has no
           equivalent element, so the name is an attribute. */}
       <ul
         aria-label={`Capsules per day, last ${series.length} days`}

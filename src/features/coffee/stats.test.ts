@@ -15,8 +15,6 @@ import {
   orderCadence,
   orderSuggestions,
   spendByMonth,
-  weekGrid,
-  type WeekGrid,
 } from './stats';
 
 const MS_PER_DAY = 86_400_000;
@@ -185,102 +183,6 @@ test('costPerCapsule is null when every order is zero-price', () => {
     { delta: 5, price: 0, shop: 'Free sample' },
   ];
   expect(costPerCapsule(rows)).toBeNull();
-});
-
-// The grid's row sums are the four time-of-day bands. Asserting on the sums — not just on
-// individual cells — is what keeps the band totals correct as the day-of-week split changes around
-// them: a weekday off-by-one moves cups between columns without altering any row total, so only the
-// per-cell tests catch that, and only these catch a band boundary drifting.
-function rowSums(grid: WeekGrid): number[] {
-  return grid.cells.map((row) => row.reduce((total, cups) => total + cups, 0));
-}
-
-test('weekGrid buckets each cup by its local hour band', () => {
-  const at = (daysAgo: number, hour: number) => {
-    const d = new Date();
-    d.setHours(hour, 0, 0, 0);
-    d.setDate(d.getDate() - daysAgo);
-    return d.getTime();
-  };
-  const rows = [
-    { delta: -1, at: at(0, 3) }, // night
-    { delta: -1, at: at(0, 7) }, // morning
-    { delta: -1, at: at(0, 9) }, // morning
-    { delta: -1, at: at(0, 14) }, // afternoon
-    { delta: -1, at: at(0, 20) }, // evening
-  ];
-
-  expect(rowSums(weekGrid(rows))).toEqual([1, 2, 1, 1]);
-});
-
-test('weekGrid bucket boundaries land in the later band', () => {
-  const at = (hour: number) => {
-    const d = new Date();
-    d.setHours(hour, 0, 0, 0);
-    return d.getTime();
-  };
-  const rows = [
-    { delta: -1, at: at(0) }, // night
-    { delta: -1, at: at(6) }, // morning
-    { delta: -1, at: at(12) }, // afternoon
-    { delta: -1, at: at(18) }, // evening
-  ];
-
-  expect(rowSums(weekGrid(rows))).toEqual([1, 1, 1, 1]);
-});
-
-// getDay() is Sunday-first; the grid is Monday-first, because that is how the week reads on screen.
-// An off-by-one here silently shifts every column, which no other assertion would catch.
-test('weekGrid columns are Monday-first', () => {
-  const d = new Date();
-  d.setHours(9, 0, 0, 0);
-  // Step back to the most recent Sunday, which must land in the LAST column.
-  d.setDate(d.getDate() - d.getDay());
-  const sunday = d.getTime();
-
-  const grid = weekGrid([{ delta: -1, at: sunday }], 30);
-
-  expect(grid.cells[1]?.[6]).toBe(1); // morning band, Sunday column
-  expect(grid.cells[1]?.[0]).toBe(0); // morning band, Monday column
-});
-
-test('weekGrid counts multi-cup deltas and ignores orders', () => {
-  const d = new Date();
-  d.setHours(9, 0, 0, 0);
-  const rows = [
-    { delta: -3, at: d.getTime() },
-    { delta: 50, at: d.getTime() },
-  ];
-
-  expect(rowSums(weekGrid(rows))).toEqual([0, 3, 0, 0]);
-});
-
-// Mirrors the dailyCups boundary test: a cup on the oldest day of the window counts, one the day
-// before does not.
-test('weekGrid includes the oldest day in the window and excludes the day before it', () => {
-  const inWindow = startOfDaysAgo(4) + 9 * 3_600_000;
-  const tooOld = startOfDaysAgo(5) + 9 * 3_600_000;
-  const rows = [
-    { delta: -3, at: inWindow },
-    { delta: -9, at: tooOld },
-  ];
-
-  expect(rowSums(weekGrid(rows, 5))).toEqual([0, 3, 0, 0]);
-});
-
-test('weekGrid reports the largest cell, floored at 1 so callers never divide by zero', () => {
-  const d = new Date();
-  d.setHours(9, 0, 0, 0);
-
-  expect(weekGrid([{ delta: -4, at: d.getTime() }]).max).toBe(4);
-  expect(weekGrid([]).max).toBe(1);
-});
-
-test('weekGrid on an empty log is a full grid of zeros', () => {
-  const grid = weekGrid([]);
-
-  expect(grid.cells).toHaveLength(4);
-  for (const row of grid.cells) expect(row).toEqual([0, 0, 0, 0, 0, 0, 0]);
 });
 
 test('spendByMonth returns exactly `months` entries, oldest first', () => {

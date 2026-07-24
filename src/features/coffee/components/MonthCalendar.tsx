@@ -24,7 +24,13 @@ const dayLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeri
 // while every real day also names itself and its count in an sr-only span, so a screen reader reads a
 // dated list rather than a picture. Same accessibility contract, ramp, and floor as the grid it
 // replaced. `today` is injectable purely as a test seam, like orderCadence's `now`.
-export function MonthCalendar({ data, today = startOfToday() }: { data: MonthGrids; today?: number }) {
+export function MonthCalendar({
+  data,
+  today = startOfToday(),
+}: {
+  data: MonthGrids;
+  today?: number;
+}) {
   // Orders on file but no cups ever → nothing to lay out. The block keeps its heading; this is the
   // one honest line, mirroring how the cost block degrades to "no orders logged yet".
   if (data.months.length === 0) {
@@ -112,7 +118,17 @@ function MonthTable({ month, max, today }: { month: MonthGrid; max: number; toda
   );
 }
 
-function DayCell({ at, cups, max, today }: { at: number; cups: number; max: number; today: number }) {
+function DayCell({
+  at,
+  cups,
+  max,
+  today,
+}: {
+  at: number;
+  cups: number;
+  max: number;
+  today: number;
+}) {
   // A day that hasn't happened is not a skipped day: render nothing, not a zero-cup outline.
   if (at > today) return <span aria-hidden="true" className="block h-5" />;
 

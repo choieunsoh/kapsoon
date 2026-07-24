@@ -13,13 +13,13 @@ out as familiar month grids they can scroll through.
 
 ## Decision summary
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Replace or add | **Replace** `WeekGrid` | Keeps the dashboard at 3 blocks; the app's stated failure mode is too many equal rectangles. |
-| Layout | **Vertical month stack** | Native page scroll on a tall phone; no horizontal drag; reads as a real calendar. |
-| Depth | **All months with data** | From the current month back to the earliest logged cup, contiguous. No paging state; user has < 1 year of data so a height cap is YAGNI. |
-| Shade scale | **One global scale** across all months | A dark cell must mean the same cup-count in every month, matching the app's "a mark's intensity means one thing" rule. |
-| Per-day numbers | **sr-only only**, no tap-to-reveal | Grid is for pattern-spotting; exact counts live in the screen-reader layer — same contract as the current heatmap. |
+| Decision        | Choice                                 | Why                                                                                                                                      |
+| --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Replace or add  | **Replace** `WeekGrid`                 | Keeps the dashboard at 3 blocks; the app's stated failure mode is too many equal rectangles.                                             |
+| Layout          | **Vertical month stack**               | Native page scroll on a tall phone; no horizontal drag; reads as a real calendar.                                                        |
+| Depth           | **All months with data**               | From the current month back to the earliest logged cup, contiguous. No paging state; user has < 1 year of data so a height cap is YAGNI. |
+| Shade scale     | **One global scale** across all months | A dark cell must mean the same cup-count in every month, matching the app's "a mark's intensity means one thing" rule.                   |
+| Per-day numbers | **sr-only only**, no tap-to-reveal     | Grid is for pattern-spotting; exact counts live in the screen-reader layer — same contract as the current heatmap.                       |
 
 ## Non-goals
 
@@ -36,12 +36,12 @@ Add one pure function; remove `weekGrid` and its `WeekGrid` type.
 
 ```ts
 export type MonthGrid = {
-  at: number;        // local midnight on the 1st of the month
-  days: number[];    // cups per day-of-month, 1-indexed (days[1] = the 1st)
+  at: number; // local midnight on the 1st of the month
+  days: number[]; // cups per day-of-month, 1-indexed (days[1] = the 1st)
 };
 export type MonthGrids = {
   months: MonthGrid[]; // newest month first
-  max: number;         // largest single-day cup count across ALL months, floored at 1
+  max: number; // largest single-day cup count across ALL months, floored at 1
 };
 
 export function monthGrids(rows: Pick<Movement, 'delta' | 'at'>[]): MonthGrids;
@@ -118,14 +118,14 @@ visually, but every cell's count is present as sr-only text with the swatch
 
 ## Files
 
-| File | Change |
-| --- | --- |
-| `src/features/coffee/stats.ts` | Add `monthGrids` + types; **remove** `weekGrid` + `WeekGrid` type. |
-| `src/features/coffee/stats.test.ts` | Remove `weekGrid` tests; add `monthGrids` tests. |
-| `src/features/coffee/components/MonthCalendar.tsx` | **New.** The month stack. |
-| `src/features/coffee/components/WeekGrid.tsx` | **Delete.** |
-| `src/features/coffee/components/DashboardView.tsx` | Swap stat + component in block 3. |
-| `src/features/coffee/dashboard-view.test.tsx` | Update block-3 assertions. |
+| File                                               | Change                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/features/coffee/stats.ts`                     | Add `monthGrids` + types; **remove** `weekGrid` + `WeekGrid` type. |
+| `src/features/coffee/stats.test.ts`                | Remove `weekGrid` tests; add `monthGrids` tests.                   |
+| `src/features/coffee/components/MonthCalendar.tsx` | **New.** The month stack.                                          |
+| `src/features/coffee/components/WeekGrid.tsx`      | **Delete.**                                                        |
+| `src/features/coffee/components/DashboardView.tsx` | Swap stat + component in block 3.                                  |
+| `src/features/coffee/dashboard-view.test.tsx`      | Update block-3 assertions.                                         |
 
 ## Testing
 

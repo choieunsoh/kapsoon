@@ -12,7 +12,7 @@ const FOLDER_MIME = 'application/vnd.google-apps.folder';
 async function driveFetch(token: string, url: string, init: RequestInit): Promise<Response> {
   const res = await fetch(url, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+    headers: { Authorization: `Bearer ${token}`, ...init.headers },
   });
   if (!res.ok) throw new Error(`Drive request failed: ${res.status}`);
   return res;

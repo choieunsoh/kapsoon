@@ -289,3 +289,30 @@ export function habitCost(
     cheapestShop: cost.cheapestShop,
   };
 }
+
+export type OrderSuggestions = {
+  shops: string[];
+  brands: string[];
+  beans: string[];
+};
+
+// Distinct, non-empty, locale-sorted shop/brand/bean values seen on past ORDERS — the option lists
+// behind the order form's <datalist> autocomplete. Orders only (delta > 0): a drink carries no
+// shop/brand/bean, and its empty strings would just be filtered out anyway. Deduping here is the
+// actual point of the feature: costPerCapsule groups shops by exact string, so surfacing the
+// spelling you already used stops "7-11" and "7-Eleven" ranking as two shops.
+export function orderSuggestions(
+  rows: Pick<Movement, 'delta' | 'shop' | 'brand' | 'beanName'>[],
+): OrderSuggestions {
+  const shops = new Set<string>();
+  const brands = new Set<string>();
+  const beans = new Set<string>();
+  for (const m of rows) {
+    if (m.delta <= 0) continue;
+    if (m.shop !== '') shops.add(m.shop);
+    if (m.brand !== '') brands.add(m.brand);
+    if (m.beanName !== '') beans.add(m.beanName);
+  }
+  const sorted = (s: Set<string>) => [...s].sort((a, b) => a.localeCompare(b));
+  return { shops: sorted(shops), brands: sorted(brands), beans: sorted(beans) };
+}

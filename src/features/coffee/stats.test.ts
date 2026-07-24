@@ -12,6 +12,7 @@ import {
   dailyCups,
   habitCost,
   orderCadence,
+  orderSuggestions,
   spendByMonth,
   weekGrid,
   type WeekGrid,
@@ -493,4 +494,30 @@ test('habitCost carries the cheapest shop through', () => {
   ];
 
   expect(habitCost(rows, 30)?.cheapestShop).toBe('Tops');
+});
+
+test('orderSuggestions returns distinct sorted values from orders only', () => {
+  const order = (shop: string, brand: string, beanName: string) => ({
+    delta: 10,
+    shop,
+    brand,
+    beanName,
+  });
+  const drink = { delta: -1, shop: '', brand: '', beanName: '' };
+
+  const rows = [
+    order('7-Eleven', 'Nescafe', 'House Blend'),
+    order('Amazon', 'Nescafe', 'Crema'),
+    order('7-Eleven', 'Bosch', ''), // repeat shop, empty bean
+    drink, // drinks contribute nothing
+  ];
+
+  expect(orderSuggestions(rows)).toEqual({
+    shops: ['7-Eleven', 'Amazon'],
+    brands: ['Bosch', 'Nescafe'],
+    beans: ['Crema', 'House Blend'],
+  });
+
+  // Empty log → three empty lists, never undefined.
+  expect(orderSuggestions([])).toEqual({ shops: [], brands: [], beans: [] });
 });

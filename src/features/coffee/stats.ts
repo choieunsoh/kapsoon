@@ -296,6 +296,13 @@ export type OrderSuggestions = {
   beans: string[];
 };
 
+// Locale-sorted array off a Set. toSorted (not sort) makes the no-mutation intent explicit — the
+// [...s] spread already produces a fresh array, but toSorted says so without the reader checking.
+// Module-scope so it isn't rebuilt on every orderSuggestions call.
+function sortedValues(values: Set<string>): string[] {
+  return [...values].toSorted((a, b) => a.localeCompare(b));
+}
+
 // Distinct, non-empty, locale-sorted shop/brand/bean values seen on past ORDERS — the option lists
 // behind the order form's <datalist> autocomplete. Orders only (delta > 0): a drink carries no
 // shop/brand/bean, and its empty strings would just be filtered out anyway. Deduping here is the
@@ -313,6 +320,5 @@ export function orderSuggestions(
     if (m.brand !== '') brands.add(m.brand);
     if (m.beanName !== '') beans.add(m.beanName);
   }
-  const sorted = (s: Set<string>) => [...s].sort((a, b) => a.localeCompare(b));
-  return { shops: sorted(shops), brands: sorted(brands), beans: sorted(beans) };
+  return { shops: sortedValues(shops), brands: sortedValues(brands), beans: sortedValues(beans) };
 }

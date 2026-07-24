@@ -15,6 +15,7 @@ import {
   readLastBackupAt,
   requestPersistence,
   seedIfEmpty,
+  setStockBadge,
   stockLevel,
   totalSpent,
   writeLastBackupAt,
@@ -45,13 +46,17 @@ export function useCoffee() {
   const refresh = useCallback(async () => {
     const rows = await listMovements();
     setMovements(rows);
-    setStock(stockLevel(rows));
+    const stock = stockLevel(rows);
+    setStock(stock);
     setBlend(latestBlend(rows));
     setConsumedToday(countConsumed(rows, startOfToday()));
     setConsumedWeek(countConsumed(rows, startOfWeekSunday()));
     setConsumedMonth(countConsumed(rows, startOfMonth()));
     setSpentMonth(totalSpent(rows, startOfMonth()));
     setBackup(backupStatus(readLastBackupAt(), Date.now(), rows.length));
+    // Fire-and-forget: keep the icon badge in sync with the stash on every write. Not awaited —
+    // the UI must not wait on a home-screen paint, and setStockBadge swallows its own failures.
+    void setStockBadge(stock);
   }, []);
 
   useEffect(() => {

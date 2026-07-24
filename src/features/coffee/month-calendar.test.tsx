@@ -37,7 +37,7 @@ test('the boundary day (at === today) renders as a real day, not blank', () => {
   // today is Jan 15; a cup on Jan 15 must render (today is inclusive, only at > today is blank).
   render(<MonthCalendar data={january({ 15: 1 })} today={JAN_15} />);
 
-  expect(screen.getByText('Jan 15: 1 capsules')).toBeInTheDocument();
+  expect(screen.getByText('Jan 15: 1 capsule')).toBeInTheDocument();
 });
 
 // A day that hasn't happened is not a skipped day: it renders blank even if it carries cups.
@@ -68,7 +68,7 @@ test('a single-cup day against a busy scale still clears the contrast floor', ()
   render(<MonthCalendar data={{ months: [{ at: JAN_2026, days }], max: 10 }} today={JAN_15} />);
 
   const swatch = screen
-    .getByText('Jan 10: 1 capsules')
+    .getByText('Jan 10: 1 capsule')
     .closest('td')
     ?.querySelector('[aria-hidden="true"]');
   const opacity = Number(/opacity:\s*([0-9.]+)/.exec(swatch?.getAttribute('style') ?? '')?.[1]);

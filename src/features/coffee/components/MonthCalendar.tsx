@@ -151,7 +151,7 @@ function DayCell({
   return (
     <>
       <span className="sr-only">
-        {label}: {cups} capsules
+        {label}: {cups} capsule{cups === 1 ? '' : 's'}
       </span>
       <span
         aria-hidden="true"

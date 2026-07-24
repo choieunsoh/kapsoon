@@ -304,7 +304,8 @@ export function monthGrids(rows: Pick<Movement, 'delta' | 'at'>[]): MonthGrids {
   let earliest = Number.POSITIVE_INFINITY;
   for (const m of rows) {
     if (m.delta >= 0) continue;
-    perDay.set(dayKey(m.at), (perDay.get(dayKey(m.at)) ?? 0) + -m.delta);
+    const key = dayKey(m.at);
+    perDay.set(key, (perDay.get(key) ?? 0) + -m.delta);
     if (m.at < earliest) earliest = m.at;
   }
 

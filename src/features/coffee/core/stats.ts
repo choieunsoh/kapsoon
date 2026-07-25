@@ -48,58 +48,72 @@ export function averageCups(series: CupDay[]): number {
   return total / series.length;
 }
 
-export type CapsuleCost = {
-  satang: number; // integer satang per capsule, all-time
-  cheapestShop: string | null;
+export type ShopRate = {
+  shop: string;
+  satang: number; // quantity-weighted per-capsule rate, integer satang
+  capsules: number; // capsules bought there, all-time
 };
 
-// All-time cost per capsule, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging each order's own
-// per-capsule rate would let a single-capsule impulse buy pull the mean as hard as a 50-capsule
-// bulk order — the number people actually want is what a capsule costs on average, not what an
-// order costs on average.
+// Every shop you have ordered from and what a capsule actually costs there — cheapest first. This
+// is the map costPerCapsule used to build privately and throw away after reading one name off it;
+// it is now the single per-shop entry point, called directly wherever a ranked list or a cheapest
+// name is needed.
 //
-// `cheapestShop` applies the same weighting per shop, so repeat visits aggregate before ranking.
-// Ties break toward the shop you've bought more from (the better-evidenced rate). Orders with an
-// empty shop still count toward the overall cost but can't be named, so they're skipped in ranking.
+// WEIGHTED per shop (Σprice / Σcapsules), so repeat visits aggregate before ranking: averaging each
+// receipt's own rate would let a single-capsule impulse buy pull a shop as hard as a 50-capsule bulk
+// order. Three exclusions, all inherited: a drink carries no price; a `price === 0` order means cost
+// UNKNOWN (an opening-balance row for stock already owned) rather than free, and would otherwise win
+// "cheapest" on no evidence at all; an order with no shop name can be costed but not attributed.
 //
-// A `price === 0` order is excluded entirely (overall average AND ranking): zero price carries no
-// price information, so it means "cost unknown" — e.g. an opening-balance row for stock you already
-// had — not "free". Averaging it in as free capsules would understate what a capsule actually costs
-// and let it win "cheapest shop" trivially.
-export function costPerCapsule(
-  rows: Pick<Movement, 'delta' | 'price' | 'shop'>[],
-): CapsuleCost | null {
-  let price = 0;
-  let capsules = 0;
+// Sorted on the ROUNDED rate — the figure that is printed. Sorting on the unrounded one would order
+// two rows both displaying ฿10.00 by a difference the reader cannot see, which reads as a broken
+// sort. Ties then break toward the shop you have bought more from: the better-evidenced rate. A
+// remaining tie (same rounded rate, same capsule count) falls back to shop name so the order is
+// fixed by the data alone — without it, two such shops would fall back to Map insertion order, i.e.
+// whichever appears first in a newest-first `movements` array, which can silently swap the pair
+// whenever an unrelated order gets logged.
+export function shopRates(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): ShopRate[] {
   const byShop = new Map<string, { price: number; capsules: number }>();
-
   for (const m of rows) {
-    if (m.delta <= 0 || m.price === 0) continue;
-    price += m.price;
-    capsules += m.delta;
-    if (m.shop === '') continue;
+    if (m.delta <= 0 || m.price === 0 || m.shop === '') continue;
     const shop = byShop.get(m.shop) ?? { price: 0, capsules: 0 };
     shop.price += m.price;
     shop.capsules += m.delta;
     byShop.set(m.shop, shop);
   }
 
-  if (capsules === 0) return null;
+  const rates: ShopRate[] = [];
+  // Round only here: satang stays an integer at the boundary, per the house money rule.
+  for (const [shop, sums] of byShop) {
+    rates.push({ shop, satang: Math.round(sums.price / sums.capsules), capsules: sums.capsules });
+  }
+  return rates.toSorted(
+    (a, b) => a.satang - b.satang || b.capsules - a.capsules || a.shop.localeCompare(b.shop),
+  );
+}
 
-  let cheapestShop: string | null = null;
-  let cheapestRate = Number.POSITIVE_INFINITY;
-  let cheapestCapsules = 0;
-  for (const [name, shop] of byShop) {
-    const rate = shop.price / shop.capsules;
-    if (rate < cheapestRate || (rate === cheapestRate && shop.capsules > cheapestCapsules)) {
-      cheapestRate = rate;
-      cheapestCapsules = shop.capsules;
-      cheapestShop = name;
-    }
+// All-time cost per capsule, in integer satang, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging
+// each order's own per-capsule rate would let a single-capsule impulse buy pull the mean as hard as
+// a 50-capsule bulk order — the number people actually want is what a capsule costs on average, not
+// what an order costs on average.
+//
+// A `price === 0` order is excluded: zero price carries no price information, so it means "cost
+// unknown" — e.g. an opening-balance row for stock you already had — not "free".
+//
+// This total is NOT the sum of shopRates': an order with no shop name is costed here but has no shop
+// to be ranked under, which is why the loop below stays separate rather than folding into shopRates.
+export function costPerCapsule(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): number | null {
+  let price = 0;
+  let capsules = 0;
+  for (const m of rows) {
+    if (m.delta <= 0 || m.price === 0) continue;
+    price += m.price;
+    capsules += m.delta;
   }
 
-  // Round only here: satang stays integer at the boundary, per the house money rule.
-  return { satang: Math.round(price / capsules), cheapestShop };
+  if (capsules === 0) return null;
+
+  return Math.round(price / capsules);
 }
 
 export type MonthSpend = {
@@ -199,7 +213,6 @@ export type HabitCost = {
     perDay: number; // integer satang, price × the `days`-window drinking rate
     perMonth: number; // integer satang, the same rate over 30 days
   } | null;
-  cheapestShop: string | null;
 };
 
 // What the habit costs: the price of a capsule, and what that price times your current drinking rate
@@ -233,15 +246,14 @@ export function habitCost(
   const cupsPerDay = averageCups(dailyCups(rows, days));
 
   return {
-    perCapsule: cost.satang,
+    perCapsule: cost,
     rate:
       cupsPerDay === 0
         ? null
         : {
-            perDay: Math.round(cost.satang * cupsPerDay),
-            perMonth: Math.round(cost.satang * cupsPerDay * 30),
+            perDay: Math.round(cost * cupsPerDay),
+            perMonth: Math.round(cost * cupsPerDay * 30),
           },
-    cheapestShop: cost.cheapestShop,
   };
 }
 

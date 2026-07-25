@@ -65,7 +65,7 @@ export function resolveSwipe(dx: number, threshold = THRESHOLD): -1 | 0 | 1 {
   return 0;
 }
 
-// Which days you drank, one month at a time — the Dashboard's third block. Opens on the current
+// Which days you drank, one month at a time — the Dashboard's fourth block. Opens on the current
 // month for free: monthGrids returns months newest-first (see its contiguous-months contract), so
 // index 0 IS the current month and the initial state needs no clock read of its own.
 //

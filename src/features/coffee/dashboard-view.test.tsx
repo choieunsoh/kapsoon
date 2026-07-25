@@ -307,6 +307,24 @@ test('the shop table ranks every shop cheapest first and drops the Cheapest at r
   expect(shops).toEqual(['Makro', 'Tops']);
   expect(within(table).getByText(formatSatang(1_500))).toBeInTheDocument();
   expect(screen.queryByText('Cheapest at')).not.toBeInTheDocument();
+
+  // The headers are the entire reason this is a <table> and not a third <dl> — without "Per capsule"
+  // and "Capsules" labelling them, a bare "฿15.00" and "30" mean nothing to a screen reader. Deleting
+  // the <thead> left the rest of this test green, so the headers get their own assertion here.
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent),
+  ).toEqual(['Shop', 'Per capsule', 'Capsules']);
+  // A table-wide text query can't tell a rate column from a count column — it would still pass if the
+  // two <td>s were swapped. Reading the first data row's cells positionally (row index 1: index 0 is
+  // the header row) is what actually pins each figure to its column.
+  const tableRows = within(table).getAllByRole('row');
+  expect(
+    within(tableRows[1])
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent),
+  ).toEqual([formatSatang(1_500), '30']);
 });
 
 // Principle 3: a section with nothing to say says nothing. Every order here is unattributed, so
@@ -331,4 +349,13 @@ test('a single shop still gets a row, with its capsule count', () => {
   const table = screen.getByRole('table', { name: 'Where you buy' });
   expect(within(table).getByRole('rowheader')).toHaveTextContent('Tops');
   expect(within(table).getByText('30')).toBeInTheDocument();
+
+  // Same reasoning as the ranking test above: a table-wide text query can't tell the rate column from
+  // the count column, so pin the one data row's cells to their positions instead.
+  const tableRows = within(table).getAllByRole('row');
+  expect(
+    within(tableRows[1])
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent),
+  ).toEqual([formatSatang(2_000), '30']);
 });

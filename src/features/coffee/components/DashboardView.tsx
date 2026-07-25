@@ -31,7 +31,7 @@ const SHOPS_HEADING_ID = 'where-you-buy';
 // me, and when do I actually drink. Nothing Home already states appears here as a raw figure; only
 // change over time does.
 //
-// Three blocks, not five cards. The trend is drawn unboxed, directly on the page, and that absence
+// Four blocks, not five cards. The trend is drawn unboxed, directly on the page, and that absence
 // of card chrome is what makes it read as the hero rather than the first of N equal rectangles —
 // PRODUCT.md names stacked equal-weight rounded rectangles as the failure mode this app is closest
 // to. Every figure comes from the pure stats module; this file only formats and lays out.
@@ -305,7 +305,7 @@ function ShopTable({ rates }: { rates: ShopRate[] }) {
           <tr key={rate.shop} className="border-t border-[var(--color-border)]">
             {/* A shop name is unbounded user data in the narrowest column on a 360px screen —
                 break-words, the same treatment the blend line on Home gets. */}
-            <th scope="row" className="min-w-0 break-words py-2.5 text-left text-sm font-medium">
+            <th scope="row" className="break-words py-2.5 text-left text-sm font-medium">
               {rate.shop}
             </th>
             <td className="tnum whitespace-nowrap py-2.5 text-right font-semibold">

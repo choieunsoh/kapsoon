@@ -48,6 +48,44 @@ export function averageCups(series: CupDay[]): number {
   return total / series.length;
 }
 
+export type ShopRate = {
+  shop: string;
+  satang: number; // quantity-weighted per-capsule rate, integer satang
+  capsules: number; // capsules bought there, all-time
+};
+
+// Every shop you have ordered from and what a capsule actually costs there — cheapest first. This
+// is the map costPerCapsule used to build privately and throw away after reading one name off it;
+// it is now the single definition of per-shop ranking, so the Dashboard's list and the
+// `cheapestShop` field cannot drift apart.
+//
+// WEIGHTED per shop (Σprice / Σcapsules), so repeat visits aggregate before ranking: averaging each
+// receipt's own rate would let a single-capsule impulse buy pull a shop as hard as a 50-capsule bulk
+// order. Three exclusions, all inherited: a drink carries no price; a `price === 0` order means cost
+// UNKNOWN (an opening-balance row for stock already owned) rather than free, and would otherwise win
+// "cheapest" on no evidence at all; an order with no shop name can be costed but not attributed.
+//
+// Sorted on the ROUNDED rate — the figure that is printed. Sorting on the unrounded one would order
+// two rows both displaying ฿10.00 by a difference the reader cannot see, which reads as a broken
+// sort. Ties then break toward the shop you have bought more from: the better-evidenced rate.
+export function shopRates(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): ShopRate[] {
+  const byShop = new Map<string, { price: number; capsules: number }>();
+  for (const m of rows) {
+    if (m.delta <= 0 || m.price === 0 || m.shop === '') continue;
+    const shop = byShop.get(m.shop) ?? { price: 0, capsules: 0 };
+    shop.price += m.price;
+    shop.capsules += m.delta;
+    byShop.set(m.shop, shop);
+  }
+
+  const rates: ShopRate[] = [];
+  // Round only here: satang stays an integer at the boundary, per the house money rule.
+  for (const [shop, sums] of byShop) {
+    rates.push({ shop, satang: Math.round(sums.price / sums.capsules), capsules: sums.capsules });
+  }
+  return rates.toSorted((a, b) => a.satang - b.satang || b.capsules - a.capsules);
+}
+
 export type CapsuleCost = {
   satang: number; // integer satang per capsule, all-time
   cheapestShop: string | null;
@@ -58,48 +96,25 @@ export type CapsuleCost = {
 // bulk order — the number people actually want is what a capsule costs on average, not what an
 // order costs on average.
 //
-// `cheapestShop` applies the same weighting per shop, so repeat visits aggregate before ranking.
-// Ties break toward the shop you've bought more from (the better-evidenced rate). Orders with an
-// empty shop still count toward the overall cost but can't be named, so they're skipped in ranking.
+// A `price === 0` order is excluded: zero price carries no price information, so it means "cost
+// unknown" — e.g. an opening-balance row for stock you already had — not "free".
 //
-// A `price === 0` order is excluded entirely (overall average AND ranking): zero price carries no
-// price information, so it means "cost unknown" — e.g. an opening-balance row for stock you already
-// had — not "free". Averaging it in as free capsules would understate what a capsule actually costs
-// and let it win "cheapest shop" trivially.
+// This total is NOT the sum of shopRates': an order with no shop name is costed here and ranked
+// there, which is why the loop below stays separate rather than folding into shopRates.
 export function costPerCapsule(
   rows: Pick<Movement, 'delta' | 'price' | 'shop'>[],
 ): CapsuleCost | null {
   let price = 0;
   let capsules = 0;
-  const byShop = new Map<string, { price: number; capsules: number }>();
-
   for (const m of rows) {
     if (m.delta <= 0 || m.price === 0) continue;
     price += m.price;
     capsules += m.delta;
-    if (m.shop === '') continue;
-    const shop = byShop.get(m.shop) ?? { price: 0, capsules: 0 };
-    shop.price += m.price;
-    shop.capsules += m.delta;
-    byShop.set(m.shop, shop);
   }
 
   if (capsules === 0) return null;
 
-  let cheapestShop: string | null = null;
-  let cheapestRate = Number.POSITIVE_INFINITY;
-  let cheapestCapsules = 0;
-  for (const [name, shop] of byShop) {
-    const rate = shop.price / shop.capsules;
-    if (rate < cheapestRate || (rate === cheapestRate && shop.capsules > cheapestCapsules)) {
-      cheapestRate = rate;
-      cheapestCapsules = shop.capsules;
-      cheapestShop = name;
-    }
-  }
-
-  // Round only here: satang stays integer at the boundary, per the house money rule.
-  return { satang: Math.round(price / capsules), cheapestShop };
+  return { satang: Math.round(price / capsules), cheapestShop: shopRates(rows)[0]?.shop ?? null };
 }
 
 export type MonthSpend = {

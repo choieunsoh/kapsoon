@@ -14,6 +14,7 @@ import {
   monthGrids,
   orderCadence,
   orderSuggestions,
+  shopRates,
   spendByMonth,
 } from './stats';
 
@@ -183,6 +184,84 @@ test('costPerCapsule is null when every order is zero-price', () => {
     { delta: 5, price: 0, shop: 'Free sample' },
   ];
   expect(costPerCapsule(rows)).toBeNull();
+});
+
+test('shopRates ranks every shop cheapest first, not just the winner', () => {
+  const rows = [
+    { delta: 10, price: 30_000, shop: 'Tops' }, // ฿30.00/capsule
+    { delta: 10, price: 20_000, shop: 'Makro' }, // ฿20.00/capsule — cheapest
+    { delta: 10, price: 40_000, shop: 'Cafe' },
+  ];
+  expect(shopRates(rows).map((r) => r.shop)).toEqual(['Makro', 'Tops', 'Cafe']);
+});
+
+test('shopRates weights repeat visits by quantity rather than averaging receipts', () => {
+  const rows = [
+    { delta: 1, price: 500, shop: 'Makro' }, // a cheap one-off…
+    { delta: 99, price: 99_000, shop: 'Makro' }, // …outweighed by the bulk buy
+    { delta: 10, price: 6_000, shop: 'Tops' }, // ฿6.00/capsule — actually cheapest
+  ];
+  // 99_500 satang / 100 capsules = 995. Averaging the two receipts' own rates would give 750.
+  expect(shopRates(rows)).toEqual([
+    { shop: 'Tops', satang: 600, capsules: 10 },
+    { shop: 'Makro', satang: 995, capsules: 100 },
+  ]);
+});
+
+test('shopRates excludes drinks, unnamed shops and zero-price orders', () => {
+  const rows = [
+    { delta: -1, price: 0, shop: '' }, // a drink
+    { delta: 10, price: 20_000, shop: '' }, // an order that cannot be attributed
+    { delta: 175, price: 0, shop: 'Opening balance' }, // cost UNKNOWN, not free
+    { delta: 10, price: 15_000, shop: 'Makro' },
+  ];
+  expect(shopRates(rows)).toEqual([{ shop: 'Makro', satang: 1_500, capsules: 10 }]);
+});
+
+test('shopRates breaks a tie toward the shop with more capsules behind the rate', () => {
+  const rows = [
+    { delta: 5, price: 5_000, shop: 'Cafe' }, // ฿10.00/capsule on 5 capsules
+    { delta: 50, price: 50_000, shop: 'Makro' }, // ฿10.00/capsule on 50 — better evidenced
+  ];
+  expect(shopRates(rows).map((r) => r.shop)).toEqual(['Makro', 'Cafe']);
+});
+
+// Rows are sorted on the ROUNDED rate — the figure actually printed. Sorting on the unrounded rate
+// would order two rows that both display ฿10.00 by a difference the reader cannot see, which reads
+// on screen as a broken sort. The capsule tie-break then decides, as it does for an exact tie.
+test('shopRates sorts on the rate it prints, not on sub-satang precision', () => {
+  const rows = [
+    { delta: 3, price: 3_001, shop: 'Cafe' }, // 1000.33 → ฿10.00
+    { delta: 30, price: 30_002, shop: 'Makro' }, // 1000.07 → ฿10.00, more capsules
+  ];
+  const rates = shopRates(rows);
+  expect(rates.map((r) => r.satang)).toEqual([1_000, 1_000]);
+  expect(rates.map((r) => r.shop)).toEqual(['Makro', 'Cafe']);
+});
+
+test('shopRates is empty when no order carries a shop name', () => {
+  expect(shopRates([])).toEqual([]);
+  expect(shopRates([{ delta: 10, price: 20_000, shop: '' }])).toEqual([]);
+});
+
+// The refactor moves cheapestShop onto shopRates' ranking. These pin that the delegation kept the
+// old answers — including the two cases that are NOT symmetric with shopRates: an unnamed-shop order
+// still counts toward the overall average, and an all-unnamed log still yields a price.
+test('costPerCapsule still names the same cheapest shop after delegating the ranking', () => {
+  const rows = [
+    { delta: 175, price: 0, shop: 'Opening balance' },
+    { delta: 10, price: 20_000, shop: 'Tops' },
+    { delta: 10, price: 15_000, shop: 'Makro' },
+  ];
+  expect(costPerCapsule(rows)?.cheapestShop).toBe('Makro');
+  expect(costPerCapsule(rows)?.cheapestShop).toBe(shopRates(rows)[0]?.shop);
+});
+
+test('costPerCapsule still costs an unnamed-shop order it cannot rank', () => {
+  const rows = [{ delta: 10, price: 20_000, shop: '' }];
+  expect(costPerCapsule(rows)?.satang).toBe(2_000);
+  expect(costPerCapsule(rows)?.cheapestShop).toBeNull();
+  expect(shopRates(rows)).toEqual([]);
 });
 
 test('spendByMonth returns exactly `months` entries, oldest first', () => {

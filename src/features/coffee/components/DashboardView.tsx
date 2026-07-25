@@ -212,7 +212,7 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
         </div>
       ) : null}
 
-      {/* 3 — When you drink. */}
+      {/* 4 — When you drink. */}
       <div className="border-t border-[var(--color-border)] pt-6">
         <h2 className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]">
           When you drink

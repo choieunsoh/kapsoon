@@ -197,6 +197,17 @@ test('shopRates breaks a tie toward the shop with more capsules behind the rate'
   expect(shopRates(rows).map((r) => r.shop)).toEqual(['Makro', 'Cafe']);
 });
 
+// A tie the capsule count can't break falls to shop name — proven by reversing the input, which
+// would flip the result if the sort were still leaning on Map insertion order underneath.
+test('shopRates breaks a same-rate, same-capsule tie by shop name, regardless of input order', () => {
+  const rows = [
+    { delta: 10, price: 10_000, shop: 'Zebra' }, // ฿10.00/capsule on 10
+    { delta: 10, price: 10_000, shop: 'Apple' }, // ฿10.00/capsule on 10 — identical rate and count
+  ];
+  expect(shopRates(rows).map((r) => r.shop)).toEqual(['Apple', 'Zebra']);
+  expect(shopRates([...rows].reverse()).map((r) => r.shop)).toEqual(['Apple', 'Zebra']);
+});
+
 // Rows are sorted on the ROUNDED rate — the figure actually printed. Sorting on the unrounded rate
 // would order two rows that both display ฿10.00 by a difference the reader cannot see, which reads
 // on screen as a broken sort. The capsule tie-break then decides, as it does for an exact tie.

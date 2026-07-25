@@ -67,7 +67,11 @@ export type ShopRate = {
 //
 // Sorted on the ROUNDED rate — the figure that is printed. Sorting on the unrounded one would order
 // two rows both displaying ฿10.00 by a difference the reader cannot see, which reads as a broken
-// sort. Ties then break toward the shop you have bought more from: the better-evidenced rate.
+// sort. Ties then break toward the shop you have bought more from: the better-evidenced rate. A
+// remaining tie (same rounded rate, same capsule count) falls back to shop name so the order is
+// fixed by the data alone — without it, two such shops would fall back to Map insertion order, i.e.
+// whichever appears first in a newest-first `movements` array, which can silently swap the pair
+// whenever an unrelated order gets logged.
 export function shopRates(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): ShopRate[] {
   const byShop = new Map<string, { price: number; capsules: number }>();
   for (const m of rows) {
@@ -83,7 +87,9 @@ export function shopRates(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): S
   for (const [shop, sums] of byShop) {
     rates.push({ shop, satang: Math.round(sums.price / sums.capsules), capsules: sums.capsules });
   }
-  return rates.toSorted((a, b) => a.satang - b.satang || b.capsules - a.capsules);
+  return rates.toSorted(
+    (a, b) => a.satang - b.satang || b.capsules - a.capsules || a.shop.localeCompare(b.shop),
+  );
 }
 
 // All-time cost per capsule, in integer satang, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging

@@ -1,27 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { startOfMonth, startOfToday, startOfWeekSunday } from './datetime';
+import { startOfMonth, startOfToday, startOfWeekSunday } from './core/datetime';
 import {
   addOrder as dbAddOrder,
   consumeOne as dbConsumeOne,
   deleteMovement as dbDeleteMovement,
   updateMovementTime as dbUpdateMovementTime,
   updateOrder as dbUpdateOrder,
-  countConsumed,
   importMovements,
-  latestBlend,
   listMovements,
   readLastBackupAt,
   requestPersistence,
   seedIfEmpty,
   setStockBadge,
-  stockLevel,
-  totalSpent,
   writeLastBackupAt,
-  type Movement,
 } from './db';
-import { backupStatus, type BackupStatus } from './backup';
+import { countConsumed, latestBlend, stockLevel, totalSpent, type Movement } from './core/movement';
+import { backupStatus, type BackupStatus } from './core/backup';
 
 export type UseCoffee = ReturnType<typeof useCoffee>;
 

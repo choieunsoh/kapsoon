@@ -7,9 +7,15 @@ import {
   type DayEntry,
   type HistoryFilter,
   type Movement,
-} from '../db';
+} from '../core/movement';
 import type { UseCoffee } from '../use-coffee';
-import { formatDayLabel, formatMonthLabel, formatTime, groupByDay, isSameMonth } from '../datetime';
+import {
+  formatDayLabel,
+  formatMonthLabel,
+  formatTime,
+  groupByDay,
+  isSameMonth,
+} from '../core/datetime';
 import { AddOrderSheet } from './AddOrderSheet';
 import { EditTimeDialog } from './EditTimeDialog';
 import { ChevronDownIcon } from './icons';
@@ -26,7 +32,7 @@ const DAYS_PER_PAGE = 30;
 // hand-written JSX elements.
 // "Capsules", not "Drinks": the rest of the app counts capsules ("162 capsules left", "Capsules this
 // week", "6 capsules"), and a second word for the same unit makes a reader stop to check whether it
-// means something different. The `value` stays `drinks` — that is the HistoryFilter member in db.ts,
+// means something different. The `value` stays `drinks` — the HistoryFilter member in core/movement,
 // and renaming a type member to fix a label would be a migration for no gain.
 const FILTERS = [
   { value: 'all', label: 'All' },

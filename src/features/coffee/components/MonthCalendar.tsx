@@ -2,8 +2,8 @@
 
 import { useId, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
-import { startOfToday } from '../datetime';
-import type { MonthGrid, MonthGrids } from '../stats';
+import { startOfToday } from '../core/datetime';
+import type { MonthGrid, MonthGrids } from '../core/stats';
 import { ChevronDownIcon } from './icons';
 
 // Column order Monday-first, matching every other weekday view in the app.

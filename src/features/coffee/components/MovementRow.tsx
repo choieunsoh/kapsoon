@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import type { Movement } from '../db';
-import { formatTime } from '../datetime';
-import { formatSatang } from '../money';
+import type { Movement } from '../core/movement';
+import { formatTime } from '../core/datetime';
+import { formatSatang } from '../core/money';
 import { ClockIcon, TrashIcon } from './icons';
 
 const number = new Intl.NumberFormat('en-US');

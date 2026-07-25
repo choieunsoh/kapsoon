@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
-import type { Movement } from './db';
+import type { Movement } from './core/movement';
 import { MovementRow } from './components/MovementRow';
 
 // MovementRow is shared by Home's "Today" list and History's log, so every behaviour pinned here

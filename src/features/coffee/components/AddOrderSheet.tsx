@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import type { Movement } from '../db';
-import { parseBahtToSatang } from '../money';
-import { orderSuggestions } from '../stats';
+import type { Movement } from '../core/movement';
+import { parseBahtToSatang } from '../core/money';
+import { orderSuggestions } from '../core/stats';
 
 type Props = {
   open: boolean;

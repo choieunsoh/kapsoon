@@ -10,8 +10,7 @@ import {
   matchesFilter,
   stockLevel,
   totalSpent,
-  updateOrder,
-} from './db';
+} from './movement';
 import { groupByDay } from './datetime';
 import { parseBackup, serializeBackup } from './backup';
 import { parseBahtToSatang } from './money';
@@ -174,14 +173,6 @@ test('matchesFilter narrows the log by movement type', () => {
 
   expect(matchesFilter(drink, 'orders')).toBe(false);
   expect(matchesFilter(order, 'orders')).toBe(true);
-});
-
-// updateOrder touches OPFS, so only its guards are unit-testable here — they run before getDb().
-test('updateOrder rejects a non-positive/fractional quantity and a float price', async () => {
-  await expect(updateOrder('id', 'Shopee', '', '', 0, 45000)).rejects.toThrow();
-  await expect(updateOrder('id', 'Shopee', '', '', 2.5, 45000)).rejects.toThrow();
-  await expect(updateOrder('id', 'Shopee', '', '', 10, 12.5)).rejects.toThrow();
-  await expect(updateOrder('id', 'Shopee', '', '', 10, -1)).rejects.toThrow();
 });
 
 test('buildDayEntries collapses a day of drinks into one entry and keeps orders separate', () => {

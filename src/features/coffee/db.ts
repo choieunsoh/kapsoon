@@ -1,20 +1,16 @@
 import { desc, eq, sql } from 'drizzle-orm';
 import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import { SQLocalDrizzle } from 'sqlocal/drizzle';
-import { movements as movementsTable } from './schema';
+import { movements as movementsTable } from './core/schema';
+import { assertIntegerMinor, assertPositiveInt, isMovement, type Movement } from './core/movement';
 
 // SQLite-in-the-browser (SQLocal → @sqlite.org/sqlite-wasm + OPFS) queried through Drizzle. The DB
 // runs in a Web Worker and touches OPFS, so it CANNOT be constructed during SSR/prerender —
 // construction is lazy (first client call).
-export type Movement = {
-  id: string;
-  shop: string;
-  brand: string;
-  beanName: string;
-  delta: number;
-  price: number; // order total in integer satang; 0 for a drink
-  at: number;
-};
+//
+// This module owns PERSISTENCE and browser platform APIs only. The domain — the Movement type, its
+// guards, and every pure reducer over rows — lives in ./core and is imported from there, so a
+// non-browser client can reuse the logic without dragging SQLocal in behind it.
 
 type CoffeeDb = SqliteRemoteDatabase<Record<string, never>>;
 
@@ -55,130 +51,6 @@ async function migrate(db: CoffeeDb): Promise<void> {
       // Already applied on this DB — safe to skip.
     }
   }
-}
-
-// A cup count is a whole positive number — guard order quantities at the write boundary. Exported
-// (and pure) so the jsdom unit test can assert it without spinning up a worker/OPFS.
-export function assertPositiveInt(quantity: number): void {
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    throw new Error(`quantity must be a positive integer (cups), got ${quantity}`);
-  }
-}
-
-// Money is always an integer minor unit (satang) — never a float. A total of 0 is allowed (freebie).
-export function assertIntegerMinor(satang: number): void {
-  if (!Number.isInteger(satang) || satang < 0) {
-    throw new Error(`price must be a non-negative integer (satang), got ${satang}`);
-  }
-}
-
-// ── Pure reducers over plain rows — the real logic, testable without a DB. ──────────────────────
-
-const MS_PER_DAY = 86_400_000;
-
-// Current stock = running sum of every movement's delta.
-export function stockLevel(rows: Pick<Movement, 'delta'>[]): number {
-  let total = 0;
-  for (const m of rows) total += m.delta;
-  return total;
-}
-
-// Cups consumed at or after `since` (a ms timestamp). Consumes are negative deltas; return a
-// positive count.
-export function countConsumed(rows: Pick<Movement, 'delta' | 'at'>[], since: number): number {
-  let consumed = 0;
-  for (const m of rows) {
-    if (m.delta < 0 && m.at >= since) consumed += -m.delta;
-  }
-  return consumed;
-}
-
-// Average cups per day across a trailing window — the basis for Home's "about N days left".
-// The divisor is CLAMPED to how much history actually exists rather than to the window length: on a
-// log that's two days old, dividing 4 cups by a 14-day window projects a runway about seven times
-// too long, which defeats the one thing the projection is for. Returns null when nothing was
-// consumed in the window — no projection beats an invented one.
-export function consumptionPerDay(
-  rows: Pick<Movement, 'delta' | 'at'>[],
-  since: number,
-  now: number,
-): number | null {
-  const consumed = countConsumed(rows, since);
-  if (consumed === 0) return null;
-  // Rows are newest-first, so the last one is the oldest thing on record.
-  const oldest = rows[rows.length - 1]?.at ?? since;
-  const days = Math.max(1, (now - Math.max(since, oldest)) / MS_PER_DAY);
-  return consumed / days;
-}
-
-// Baht (in satang) spent on orders at or after `since`. Orders are positive deltas carrying a price.
-export function totalSpent(
-  rows: Pick<Movement, 'delta' | 'price' | 'at'>[],
-  since: number,
-): number {
-  let spent = 0;
-  for (const m of rows) {
-    if (m.delta > 0 && m.at >= since) spent += m.price;
-  }
-  return spent;
-}
-
-// The brand/bean of the most recent order — drives the "currently drinking" label on the stock hero.
-// `rows` are newest-first, so the first order wins. Null when nothing's been ordered yet.
-export function latestBlend(rows: Movement[]): { brand: string; beanName: string } | null {
-  for (const m of rows) {
-    if (m.delta > 0 && m.brand !== '') return { brand: m.brand, beanName: m.beanName };
-  }
-  return null;
-}
-
-// Which movements the History log shows. Drinks are negative deltas, orders positive — the same
-// sign convention every reducer above relies on.
-export type HistoryFilter = 'all' | 'drinks' | 'orders';
-
-export function matchesFilter(row: Pick<Movement, 'delta'>, filter: HistoryFilter): boolean {
-  if (filter === 'drinks') return row.delta < 0;
-  if (filter === 'orders') return row.delta > 0;
-  return true;
-}
-
-// One rendered line in the History log. A day's drinks collapse into a SINGLE entry: 597 of the 606
-// movements on a real device are drinks, every one of them identical apart from a timestamp, and
-// rendering them one-per-row made the log 53 screens tall and its longest run 11 byte-identical
-// lines. The collapsed entry keeps its own movements so a specific cup can still be edited or
-// deleted once the row is expanded. Orders never collapse — each one is distinct and informative.
-export type DayEntry =
-  | { kind: 'drinks'; cups: number; from: number; to: number; movements: Movement[] }
-  | { kind: 'order'; movement: Movement };
-
-// Collapse ONE day's movements (newest-first, as listMovements returns them) into render entries.
-// The drinks entry takes the position of the day's newest drink, so an order logged mid-day still
-// reads in roughly the right place without splitting the day's drinking into two piles.
-export function buildDayEntries(rows: Movement[]): DayEntry[] {
-  const drinks = rows.filter((m) => m.delta < 0);
-  const entries: DayEntry[] = [];
-  let placed = false;
-  for (const m of rows) {
-    if (m.delta >= 0) {
-      entries.push({ kind: 'order', movement: m });
-      continue;
-    }
-    if (placed) continue;
-    placed = true;
-    let cups = 0;
-    for (const d of drinks) cups += -d.delta;
-    // Newest-first, so the LAST drink is the earliest one of the day. The `?? m.at` fallbacks can
-    // never fire — we are inside the branch that proves `drinks` is non-empty — but they keep this
-    // free of the banned `!` assertion.
-    entries.push({
-      kind: 'drinks',
-      cups,
-      from: drinks[drinks.length - 1]?.at ?? m.at,
-      to: drinks[0]?.at ?? m.at,
-      movements: drinks,
-    });
-  }
-  return entries;
 }
 
 // ── Writes ──────────────────────────────────────────────────────────────────────────────────
@@ -245,7 +117,7 @@ export async function updateOrder(
     .where(eq(movementsTable.id, id));
 }
 
-// Newest first — drives the activity list and every pure reducer above.
+// Newest first — drives the activity list and every pure reducer in ./core.
 export async function listMovements(): Promise<Movement[]> {
   const db = await getDb();
   return db.select().from(movementsTable).orderBy(desc(movementsTable.at)).all();
@@ -257,22 +129,6 @@ export async function importMovements(rows: Movement[]): Promise<number> {
   const db = await getDb();
   await db.insert(movementsTable).values(rows).onConflictDoNothing();
   return rows.length;
-}
-
-// Guard the seed JSON at the trust boundary (it's untrusted input from the network).
-export function isMovement(v: unknown): v is Movement {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'id' in v &&
-    typeof v.id === 'string' &&
-    'delta' in v &&
-    typeof v.delta === 'number' &&
-    'price' in v &&
-    typeof v.price === 'number' &&
-    'at' in v &&
-    typeof v.at === 'number'
-  );
 }
 
 const SEED_URL = '/coffee-seed.json';

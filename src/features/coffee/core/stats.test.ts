@@ -22,8 +22,8 @@ const MS_PER_HOUR = 3_600_000;
 
 // The bug this guards: the Dashboard chart's reference line must sit at the mean of the days it
 // actually draws. Dividing by "days I drank" instead of "days shown" floats the line above most of
-// its own bars, and borrowing Home's 14-day pace (db.ts's consumptionPerDay) for a 30-day chart
-// does the same.
+// its own bars, and borrowing Home's 14-day pace (movement.ts's consumptionPerDay) for a 30-day
+// chart does the same.
 test('averageCups divides by every day shown, including the zero ones', () => {
   const day = (cups: number, i: number) => ({ at: i, cups });
 

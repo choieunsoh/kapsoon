@@ -1,7 +1,9 @@
 'use client';
 
+import { useId, useState } from 'react';
 import { startOfToday } from '../datetime';
 import type { MonthGrid, MonthGrids } from '../stats';
+import { ChevronDownIcon } from './icons';
 
 // Column order Monday-first, matching every other weekday view in the app.
 const DAYS = [
@@ -22,22 +24,22 @@ const dayLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeri
 // one-capsule day, and anything at or past the last rung clamps to it. Index 0 is unused — a
 // zero-capsule day is an outline, not a fill.
 //
-// The ramp runs LIGHT to DARK as the count rises — the inverse of a conventional heatmap, and
-// deliberate: more capsules is stronger, darker coffee. It costs nothing in legibility because the
-// count is now printed in the cell, so the fill no longer has to be the loudest thing on a busy day.
+// The ramp runs DARK to LIGHT as the count rises: a busy day is the brightest amber on the screen,
+// which is the conventional heatmap direction and keeps the heaviest days from receding into a dark
+// page.
 //
 // These are percentages, not opacities, because opacity on the cell would fade the DIGIT along with
 // the fill and void the contrast maths below. color-mix over --color-bg composites the fill alone
 // and reproduces exactly the sRGB arithmetic those numbers were derived from.
-export const SHADES = [0, 100, 85, 62, 45, 30] as const;
+export const SHADES = [0, 30, 45, 62, 85, 100] as const;
 
 // At or above this mix percentage the cell is light enough that --color-on-accent (#1a1206) clears
 // WCAG 2.2 1.4.3's 4.5:1 on it; below it, the cell is dark enough that --color-text (#ecedf1) does.
 //
-// The gap in SHADES between 85 and 62 is not a taste call: composited over --color-bg those mixes
-// land at relative luminance 0.2251 and 0.1264, and every fill BETWEEN luminance 0.1495 and 0.2055
+// The gap in SHADES between 62 and 85 is not a taste call: composited over --color-bg those mixes
+// land at relative luminance 0.1264 and 0.2251, and every fill BETWEEN luminance 0.1495 and 0.2055
 // clears 4.5:1 against neither ink. The ramp steps over that dead band rather than landing in it, so
-// each rung has an ink that passes: 100→6.31:1, 85→4.85:1, 62→5.09:1, 45→7.26:1, 30→9.94:1.
+// each rung has an ink that passes: 30→9.94:1, 45→7.26:1, 62→5.09:1, 85→4.85:1, 100→6.31:1.
 //
 // This is why the grid no longer imports ACCENT_INK_FLOOR. That constant exists because a bare
 // swatch IS the information, so 1.4.11's 3:1 for a graphical object binds it — still true of the
@@ -46,16 +48,13 @@ export const SHADES = [0, 100, 85, 62, 45, 30] as const;
 // ramp enough range to be worth shading at all.
 export const DARK_INK_FROM = 85;
 
-// Which days you drank, one month per screen — the Dashboard's third block. Months are laid out in a
-// horizontal scroll-snap strip, newest first, so the strip opens on the current month with no scroll
-// position to restore and no JS: months[0] IS the current month (see monthGrids' contiguous-months
-// contract) and a fresh scroll container starts at offset 0. Swiping sideways changes month; the
-// container is focusable so a keyboard can reach the older months too.
+// Which days you drank, one month at a time — the Dashboard's third block. Opens on the current
+// month for free: monthGrids returns months newest-first (see its contiguous-months contract), so
+// index 0 IS the current month and the initial state needs no clock read of its own.
 //
-// Each month is a real <table> (weeks as rows, weekdays as columns). Every real day prints its
-// capsule count and also names itself and that count in an sr-only span, so a screen reader reads a
-// dated list rather than a picture. `today` is injectable purely as a test seam, like orderCadence's
-// `now`.
+// The month is a real <table> (weeks as rows, weekdays as columns). Every real day prints its capsule
+// count and also names itself and that count in an sr-only span, so a screen reader reads a dated
+// list rather than a picture. `today` is injectable purely as a test seam, like orderCadence's `now`.
 //
 // data.max is ignored: shading is absolute, so a 2-capsule day is the same brown in every month
 // rather than shifting with whatever the busiest day happened to be.
@@ -66,31 +65,94 @@ export function MonthCalendar({
   data: MonthGrids;
   today?: number;
 }) {
+  // Index into data.months, so 0 is the newest month and larger is further back in time.
+  const [index, setIndex] = useState(0);
+  // The visible month heading doubles as the table's accessible name, so the month is written once.
+  const headingId = useId();
+
   // Orders on file but no cups ever → nothing to lay out. The block keeps its heading; this is the
-  // one honest line, mirroring how the cost block degrades to "no orders logged yet".
+  // one honest line, mirroring how the cost block degrades to "no orders logged yet". Declared after
+  // the hook so the hook order stays stable across renders.
   if (data.months.length === 0) {
     return <p className="mt-3 text-sm text-[var(--color-muted)]">no cups logged yet</p>;
   }
 
+  // The log can shrink under a stale index — a restore or a delete drops months off the end.
+  const at = Math.min(index, data.months.length - 1);
+  const month = data.months[at];
+  if (month === undefined) {
+    return <p className="mt-3 text-sm text-[var(--color-muted)]">no cups logged yet</p>;
+  }
+
+  const label = monthLabel.format(month.at);
+
   return (
-    // tabIndex on a scroll container is WCAG 2.2 2.1.1: without it the older months are reachable by
-    // touch and trackpad only, and a keyboard has no way to scroll the strip at all.
-    <div
-      role="group"
-      aria-label="Calendar months, newest first — scroll sideways to change month"
-      tabIndex={0}
-      className="mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
-    >
-      {data.months.map((month) => (
-        <div key={month.at} className="w-full shrink-0 snap-center">
-          <MonthTable month={month} today={today} />
-        </div>
-      ))}
+    <div className="mt-3">
+      <div className="flex items-center justify-between gap-2">
+        {/* Older is FORWARD through the array, because months are newest-first. */}
+        <MonthStep
+          label="Previous month"
+          onClick={() => setIndex(at + 1)}
+          disabled={at >= data.months.length - 1}
+          className="rotate-90"
+        />
+        {/* aria-live: the buttons keep their static labels, so without this a screen reader hears
+            "Previous month" and nothing about which month it landed on. */}
+        <p
+          id={headingId}
+          aria-live="polite"
+          className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]"
+        >
+          {label}
+        </p>
+        <MonthStep
+          label="Next month"
+          onClick={() => setIndex(at - 1)}
+          disabled={at <= 0}
+          className="-rotate-90"
+        />
+      </div>
+
+      <MonthTable month={month} labelledBy={headingId} today={today} />
     </div>
   );
 }
 
-function MonthTable({ month, today }: { month: MonthGrid; today: number }) {
+// A 44px tap target per the app's minimum, wrapping the shared disclosure caret rather than adding a
+// second chevron: rotated a quarter turn it is already the left/right arrow this needs.
+function MonthStep({
+  label,
+  onClick,
+  disabled,
+  className,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-muted)] transition-colors duration-[var(--dur-fast)] hover:text-[var(--color-accent)] disabled:pointer-events-none disabled:opacity-30"
+    >
+      <ChevronDownIcon className={`h-5 w-5 ${className}`} />
+    </button>
+  );
+}
+
+function MonthTable({
+  month,
+  labelledBy,
+  today,
+}: {
+  month: MonthGrid;
+  labelledBy: string;
+  today: number;
+}) {
   const first = new Date(month.at);
   const year = first.getFullYear();
   const monthIndex = first.getMonth();
@@ -111,10 +173,12 @@ function MonthTable({ month, today }: { month: MonthGrid; today: number }) {
     // table-fixed so every column is equal width, which is also what makes the cells square: each
     // cell is aspect-square against a column width it cannot influence, so no day can grow itself by
     // carrying a wider number.
-    <table className="w-full table-fixed border-separate border-spacing-1">
-      <caption className="mb-1 text-left text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]">
-        {monthLabel.format(month.at)}
-      </caption>
+    // aria-labelledby rather than a <caption>: the visible month already sits in the stepper header
+    // above, and a sr-only caption would repeat that same string into the accessibility tree twice.
+    <table
+      aria-labelledby={labelledBy}
+      className="mt-1 w-full table-fixed border-separate border-spacing-1"
+    >
       <thead>
         <tr>
           {DAYS.map((day, i) => (
@@ -173,8 +237,8 @@ function DayCell({ at, cups, today }: { at: number; cups: number; today: number 
   }
 
   const mix = SHADES[Math.min(cups, SHADES.length - 1)] ?? SHADES[1];
-  // Figure and ground swap as the count climbs — a light day is dark ink on amber, a heavy day is
-  // light ink on brown — so neither end of the ramp recedes into the page.
+  // Figure and ground swap as the count climbs — a quiet day is light ink on brown, a heavy day is
+  // dark ink on amber — so neither end of the ramp recedes into the page.
   const ink = mix >= DARK_INK_FROM ? '--color-on-accent' : '--color-text';
 
   return (

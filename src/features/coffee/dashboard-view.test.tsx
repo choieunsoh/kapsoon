@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import type { Movement } from './core/movement';
 import { ACCENT_INK_FLOOR } from './components/chart-ink';
@@ -182,8 +182,11 @@ test('the calendar renders month tables that carry each day count as text', () =
   render(<DashboardView coffee={coffeeWith({ movements: steadyDrinker() })} />);
 
   expect(screen.getAllByRole('table').length).toBeGreaterThan(0);
-  // 7 weekday column headers per month table.
-  expect(screen.getAllByRole('columnheader').length % 7).toBe(0);
+  // Scoped to the month table by its accessible name ("July 2026" — the visible month heading,
+  // via aria-labelledby). The page now renders a second table, and an unscoped columnheader count
+  // would be totalling weekday headers together with the shop table's.
+  const monthTable = screen.getByRole('table', { name: /\d{4}$/ });
+  expect(within(monthTable).getAllByRole('columnheader')).toHaveLength(7);
   expect(screen.getAllByText(/: 2 capsules/).length).toBeGreaterThan(0);
 });
 
@@ -256,7 +259,9 @@ test('an order with no cups in the window prints the price without a rate of zer
   const rows = [order(0, 60_000)];
   render(<DashboardView coffee={coffeeWith({ movements: rows })} />);
 
-  expect(screen.getByText(formatSatang(2_000))).toBeInTheDocument();
+  // By test id, not by text: the shop table below prints the same ฿20.00 for Tops, and getByText
+  // throws on two matches. Same reason data-testid="trend-average" exists.
+  expect(screen.getByTestId('cost-per-capsule')).toHaveTextContent(formatSatang(2_000));
   expect(screen.queryByText(/a day ·/)).not.toBeInTheDocument();
   expect(screen.getByText('price all-time')).toBeInTheDocument();
 });
@@ -283,4 +288,47 @@ test('every recessive accent bar is drawn at or above the 3:1 contrast floor', (
     const opacity = Number(bar.style.opacity);
     expect(opacity).toBeGreaterThanOrEqual(ACCENT_INK_FLOOR);
   }
+});
+
+// The section supersedes the old "Cheapest at" row: a ranked list whose first row IS the cheapest
+// shop makes a separate row naming it pure duplication.
+test('the shop table ranks every shop cheapest first and drops the Cheapest at row', () => {
+  const rows = [
+    order(2, 60_000, 'Tops'), // 30 capsules, ฿600.00 → ฿20.00
+    order(20, 45_000, 'Makro'), // 30 capsules, ฿450.00 → ฿15.00 — cheapest
+    ...steadyDrinker(),
+  ];
+  render(<DashboardView coffee={coffeeWith({ movements: rows })} />);
+
+  const table = screen.getByRole('table', { name: 'Where you buy' });
+  const shops = within(table)
+    .getAllByRole('rowheader')
+    .map((cell) => cell.textContent);
+  expect(shops).toEqual(['Makro', 'Tops']);
+  expect(within(table).getByText(formatSatang(1_500))).toBeInTheDocument();
+  expect(screen.queryByText('Cheapest at')).not.toBeInTheDocument();
+});
+
+// Principle 3: a section with nothing to say says nothing. Every order here is unattributed, so
+// there is no ranking to draw — and an empty card would be the equal-weight rectangle PRODUCT.md
+// names as this app's nearest failure mode.
+test('with no shop named on any order the section renders nothing at all', () => {
+  const rows = [order(2, 60_000, ''), ...steadyDrinker()];
+  render(<DashboardView coffee={coffeeWith({ movements: rows })} />);
+
+  expect(screen.queryByText('Where you buy')).not.toBeInTheDocument();
+  expect(screen.queryByRole('table', { name: 'Where you buy' })).not.toBeInTheDocument();
+  // The cost block still reports the price it can compute from an unattributed order.
+  expect(screen.getByTestId('cost-per-capsule')).toHaveTextContent(formatSatang(2_000));
+});
+
+// One shop is not a ranking, but "฿20.00 across 30 capsules" is still a true and useful fact about
+// where you buy. Rendering it costs nothing; suppressing it would hide the only row there is.
+test('a single shop still gets a row, with its capsule count', () => {
+  const rows = [order(2, 60_000, 'Tops'), ...steadyDrinker()];
+  render(<DashboardView coffee={coffeeWith({ movements: rows })} />);
+
+  const table = screen.getByRole('table', { name: 'Where you buy' });
+  expect(within(table).getByRole('rowheader')).toHaveTextContent('Tops');
+  expect(within(table).getByText('30')).toBeInTheDocument();
 });

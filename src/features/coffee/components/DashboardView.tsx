@@ -8,8 +8,10 @@ import {
   habitCost,
   monthGrids,
   orderCadence,
+  shopRates,
   spendByMonth,
   type MonthSpend,
+  type ShopRate,
 } from '../core/stats';
 import { ACCENT_INK_FLOOR } from './chart-ink';
 import { MonthCalendar } from './MonthCalendar';
@@ -22,6 +24,7 @@ const monthShort = new Intl.DateTimeFormat('en-US', { month: 'short' });
 
 const WINDOW_DAYS = 30;
 const SPEND_MONTHS = 6;
+const SHOPS_HEADING_ID = 'where-you-buy';
 
 // Dashboard: the zoomed-out view. Home answers "now" — what's left, what today looks like, what this
 // month has cost. This answers "over time": am I drinking more than I was, what is the habit costing
@@ -61,6 +64,7 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
   const spend = spendByMonth(movements, SPEND_MONTHS);
   const cadence = orderCadence(movements);
   const calendar = monthGrids(movements);
+  const rates = shopRates(movements);
 
   const first = series[0];
   const last = series[series.length - 1];
@@ -127,7 +131,10 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
         {cost ? (
           <>
             <p className="mt-2 flex items-baseline gap-2">
-              <span className="tnum text-[30px] font-semibold leading-none">
+              <span
+                data-testid="cost-per-capsule"
+                className="tnum text-[30px] font-semibold leading-none"
+              >
                 {formatSatang(cost.perCapsule)}
               </span>
               <span className="text-[var(--color-muted)]">a capsule</span>
@@ -163,12 +170,6 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
             <SpendBars spend={spend} />
 
             <dl className="mt-4">
-              {cost.cheapestShop ? (
-                <div className="flex items-baseline justify-between border-t border-[var(--color-border)] py-2.5">
-                  <dt className="text-sm text-[var(--color-muted)]">Cheapest at</dt>
-                  <dd className="font-semibold">{cost.cheapestShop}</dd>
-                </div>
-              ) : null}
               {cadence ? (
                 <div className="flex items-baseline justify-between border-t border-[var(--color-border)] py-2.5">
                   <dt className="text-sm text-[var(--color-muted)]">You order</dt>
@@ -193,6 +194,23 @@ export function DashboardView({ coffee }: { coffee: UseCoffee }) {
           </>
         )}
       </div>
+
+      {/* 3 — Where you buy. Renders only when an order actually names a shop: with nothing to rank
+          this would be an empty rounded rectangle, which is the failure mode PRODUCT.md names.
+          It replaces the old "Cheapest at" row, which named a winner without showing the field.
+          A real <table>: three labelled columns is what a table is for, and it gives a screen
+          reader row/column navigation that the two-value <dl> rows above cannot. */}
+      {rates.length > 0 ? (
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h2
+            id={SHOPS_HEADING_ID}
+            className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]"
+          >
+            Where you buy
+          </h2>
+          <ShopTable rates={rates} />
+        </div>
+      ) : null}
 
       {/* 3 — When you drink. */}
       <div className="border-t border-[var(--color-border)] pt-6">
@@ -260,5 +278,45 @@ function SpendBars({ spend }: { spend: MonthSpend[] }) {
         ))}
       </ul>
     </>
+  );
+}
+
+// Every shop, cheapest first. All-time, matching the "price all-time" caption in the cost block
+// above — the dashboard already carries two figures on different windows and labels both to stop
+// them reading as a contradiction, and a third window would need a third label.
+function ShopTable({ rates }: { rates: ShopRate[] }) {
+  return (
+    <table aria-labelledby={SHOPS_HEADING_ID} className="mt-2 w-full">
+      <thead>
+        <tr className="text-xs text-[var(--color-muted)]">
+          <th scope="col" className="py-1.5 text-left font-normal">
+            Shop
+          </th>
+          <th scope="col" className="py-1.5 text-right font-normal">
+            Per capsule
+          </th>
+          <th scope="col" className="py-1.5 text-right font-normal">
+            Capsules
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rates.map((rate) => (
+          <tr key={rate.shop} className="border-t border-[var(--color-border)]">
+            {/* A shop name is unbounded user data in the narrowest column on a 360px screen —
+                break-words, the same treatment the blend line on Home gets. */}
+            <th scope="row" className="min-w-0 break-words py-2.5 text-left text-sm font-medium">
+              {rate.shop}
+            </th>
+            <td className="tnum whitespace-nowrap py-2.5 text-right font-semibold">
+              {formatSatang(rate.satang)}
+            </td>
+            <td className="tnum py-2.5 text-right text-sm text-[var(--color-muted)]">
+              {number.format(rate.capsules)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

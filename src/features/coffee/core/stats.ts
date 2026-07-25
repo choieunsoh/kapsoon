@@ -56,8 +56,8 @@ export type ShopRate = {
 
 // Every shop you have ordered from and what a capsule actually costs there — cheapest first. This
 // is the map costPerCapsule used to build privately and throw away after reading one name off it;
-// it is now the single definition of per-shop ranking, so the Dashboard's list and the
-// `cheapestShop` field cannot drift apart.
+// it is now the single per-shop entry point, called directly wherever a ranked list or a cheapest
+// name is needed.
 //
 // WEIGHTED per shop (Σprice / Σcapsules), so repeat visits aggregate before ranking: averaging each
 // receipt's own rate would let a single-capsule impulse buy pull a shop as hard as a 50-capsule bulk
@@ -86,24 +86,17 @@ export function shopRates(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): S
   return rates.toSorted((a, b) => a.satang - b.satang || b.capsules - a.capsules);
 }
 
-export type CapsuleCost = {
-  satang: number; // integer satang per capsule, all-time
-  cheapestShop: string | null;
-};
-
-// All-time cost per capsule, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging each order's own
-// per-capsule rate would let a single-capsule impulse buy pull the mean as hard as a 50-capsule
-// bulk order — the number people actually want is what a capsule costs on average, not what an
-// order costs on average.
+// All-time cost per capsule, in integer satang, WEIGHTED BY QUANTITY (Σprice / Σdelta). Averaging
+// each order's own per-capsule rate would let a single-capsule impulse buy pull the mean as hard as
+// a 50-capsule bulk order — the number people actually want is what a capsule costs on average, not
+// what an order costs on average.
 //
 // A `price === 0` order is excluded: zero price carries no price information, so it means "cost
 // unknown" — e.g. an opening-balance row for stock you already had — not "free".
 //
-// This total is NOT the sum of shopRates': an order with no shop name is costed here and ranked
-// there, which is why the loop below stays separate rather than folding into shopRates.
-export function costPerCapsule(
-  rows: Pick<Movement, 'delta' | 'price' | 'shop'>[],
-): CapsuleCost | null {
+// This total is NOT the sum of shopRates': an order with no shop name is costed here but has no shop
+// to be ranked under, which is why the loop below stays separate rather than folding into shopRates.
+export function costPerCapsule(rows: Pick<Movement, 'delta' | 'price' | 'shop'>[]): number | null {
   let price = 0;
   let capsules = 0;
   for (const m of rows) {
@@ -114,7 +107,7 @@ export function costPerCapsule(
 
   if (capsules === 0) return null;
 
-  return { satang: Math.round(price / capsules), cheapestShop: shopRates(rows)[0]?.shop ?? null };
+  return Math.round(price / capsules);
 }
 
 export type MonthSpend = {
@@ -214,7 +207,6 @@ export type HabitCost = {
     perDay: number; // integer satang, price × the `days`-window drinking rate
     perMonth: number; // integer satang, the same rate over 30 days
   } | null;
-  cheapestShop: string | null;
 };
 
 // What the habit costs: the price of a capsule, and what that price times your current drinking rate
@@ -248,15 +240,14 @@ export function habitCost(
   const cupsPerDay = averageCups(dailyCups(rows, days));
 
   return {
-    perCapsule: cost.satang,
+    perCapsule: cost,
     rate:
       cupsPerDay === 0
         ? null
         : {
-            perDay: Math.round(cost.satang * cupsPerDay),
-            perMonth: Math.round(cost.satang * cupsPerDay * 30),
+            perDay: Math.round(cost * cupsPerDay),
+            perMonth: Math.round(cost * cupsPerDay * 30),
           },
-    cheapestShop: cost.cheapestShop,
   };
 }
 

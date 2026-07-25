@@ -124,35 +124,15 @@ test('costPerCapsule weights by quantity, not by order', () => {
     { delta: 1, price: 5_000, shop: 'Cafe' }, // ฿50.00/capsule — one capsule, must not swing the mean
   ];
   // Weighted: 55_000 satang / 51 capsules = 1078.4 → 1078. Unweighted would be 3000 satang.
-  expect(costPerCapsule(rows)?.satang).toBe(1078);
-});
-
-test('costPerCapsule names the shop with the lowest per-capsule rate', () => {
-  const rows = [
-    { delta: 10, price: 30_000, shop: 'Tops' }, // ฿30.00/capsule
-    { delta: 10, price: 20_000, shop: 'Makro' }, // ฿20.00/capsule — cheapest
-    { delta: 10, price: 40_000, shop: 'Cafe' },
-  ];
-  expect(costPerCapsule(rows)?.cheapestShop).toBe('Makro');
-});
-
-test('costPerCapsule aggregates repeat visits to the same shop before ranking', () => {
-  const rows = [
-    { delta: 1, price: 500, shop: 'Makro' }, // a cheap one-off…
-    { delta: 99, price: 99_000, shop: 'Makro' }, // …outweighed by the bulk buy → ฿9.95/capsule avg
-    { delta: 10, price: 6_000, shop: 'Tops' }, // ฿6.00/capsule — actually cheapest
-  ];
-  expect(costPerCapsule(rows)?.cheapestShop).toBe('Tops');
+  expect(costPerCapsule(rows)).toBe(1078);
 });
 
 test('costPerCapsule ignores drinks and unnamed shops', () => {
   const rows = [
     { delta: -1, price: 0, shop: '' }, // a drink — never counts toward cost
-    { delta: 10, price: 20_000, shop: '' }, // an order with no shop: counts for cost, not for ranking
+    { delta: 10, price: 20_000, shop: '' }, // an order with no shop: counts for cost all the same
   ];
-  const cost = costPerCapsule(rows);
-  expect(cost?.satang).toBe(2_000);
-  expect(cost?.cheapestShop).toBeNull();
+  expect(costPerCapsule(rows)).toBe(2_000);
 });
 
 test('costPerCapsule is null when nothing has been ordered', () => {
@@ -166,16 +146,7 @@ test('costPerCapsule excludes zero-price orders from the weighted average', () =
     { delta: 175, price: 0, shop: 'Opening balance' }, // stock on hand, not a purchase
   ];
   // If the free capsules were averaged in: 20_000 / 185 = 108 satang. Excluded, it's 2_000.
-  expect(costPerCapsule(rows)?.satang).toBe(2_000);
-});
-
-test('costPerCapsule never names a zero-price shop cheapest', () => {
-  const rows = [
-    { delta: 175, price: 0, shop: 'Opening balance' }, // 0 satang/capsule — must not win by default
-    { delta: 10, price: 20_000, shop: 'Tops' }, // ฿20.00/capsule
-    { delta: 10, price: 15_000, shop: 'Makro' }, // ฿15.00/capsule — actually cheapest
-  ];
-  expect(costPerCapsule(rows)?.cheapestShop).toBe('Makro');
+  expect(costPerCapsule(rows)).toBe(2_000);
 });
 
 test('costPerCapsule is null when every order is zero-price', () => {
@@ -244,23 +215,20 @@ test('shopRates is empty when no order carries a shop name', () => {
   expect(shopRates([{ delta: 10, price: 20_000, shop: '' }])).toEqual([]);
 });
 
-// The refactor moves cheapestShop onto shopRates' ranking. These pin that the delegation kept the
-// old answers — including the two cases that are NOT symmetric with shopRates: an unnamed-shop order
-// still counts toward the overall average, and an all-unnamed log still yields a price.
-test('costPerCapsule still names the same cheapest shop after delegating the ranking', () => {
+// A zero-price shop must never rank first by default: it is excluded outright, not sorted to the
+// bottom, so it cannot win "cheapest" just because the real prices happen to all be higher than 0.
+test('shopRates never ranks a zero-price shop cheapest', () => {
   const rows = [
-    { delta: 175, price: 0, shop: 'Opening balance' },
-    { delta: 10, price: 20_000, shop: 'Tops' },
-    { delta: 10, price: 15_000, shop: 'Makro' },
+    { delta: 175, price: 0, shop: 'Opening balance' }, // 0 satang/capsule — must not win by default
+    { delta: 10, price: 20_000, shop: 'Tops' }, // ฿20.00/capsule
+    { delta: 10, price: 15_000, shop: 'Makro' }, // ฿15.00/capsule — actually cheapest
   ];
-  expect(costPerCapsule(rows)?.cheapestShop).toBe('Makro');
-  expect(costPerCapsule(rows)?.cheapestShop).toBe(shopRates(rows)[0]?.shop);
+  expect(shopRates(rows).map((r) => r.shop)).toEqual(['Makro', 'Tops']);
 });
 
 test('costPerCapsule still costs an unnamed-shop order it cannot rank', () => {
   const rows = [{ delta: 10, price: 20_000, shop: '' }];
-  expect(costPerCapsule(rows)?.satang).toBe(2_000);
-  expect(costPerCapsule(rows)?.cheapestShop).toBeNull();
+  expect(costPerCapsule(rows)).toBe(2_000);
   expect(shopRates(rows)).toEqual([]);
 });
 
@@ -466,16 +434,6 @@ test('habitCost inherits the zero-price exclusion', () => {
   ];
 
   expect(habitCost(rows, 30)?.perCapsule).toBe(2_000);
-});
-
-test('habitCost carries the cheapest shop through', () => {
-  const rows = [
-    { delta: 10, price: 20_000, shop: 'Tops', at: startOfDaysAgo(0) },
-    { delta: 10, price: 30_000, shop: 'Makro', at: startOfDaysAgo(1) },
-    { delta: -1, price: 0, shop: '', at: startOfDaysAgo(0) + 9 * 3_600_000 },
-  ];
-
-  expect(habitCost(rows, 30)?.cheapestShop).toBe('Tops');
 });
 
 test('orderSuggestions returns distinct sorted values from orders only', () => {

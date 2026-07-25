@@ -9,8 +9,8 @@ one". The data to answer all three is already recorded on every order (`shop`, `
 already aggregated inside `costPerCapsule` — which builds a full per-shop map and then discards
 everything but the argmin.
 
-This is the second half of PRODUCT.md's asymmetric job: *"Occasionally, deliberately… record a
-restock order."* Where to restock from is the one buying decision the log has enough history to
+This is the second half of PRODUCT.md's asymmetric job: _"Occasionally, deliberately… record a
+restock order."_ Where to restock from is the one buying decision the log has enough history to
 inform.
 
 ## Scope
@@ -20,7 +20,7 @@ its quantity-weighted per-capsule rate and total capsules, cheapest first.
 
 Out of scope, deliberately:
 
-- Any signal inside `AddOrderSheet`. The sheet *records* an order already paid for; a price
+- Any signal inside `AddOrderSheet`. The sheet _records_ an order already paid for; a price
   comparison there is a lament, not decision support.
 - Any signal on Home's reorder prompt. Considered and set aside — Home is the "now" surface and the
   Dashboard is where cost lives.
@@ -34,7 +34,7 @@ Out of scope, deliberately:
 ```ts
 export type ShopRate = {
   shop: string;
-  satang: number;   // quantity-weighted per-capsule rate, integer satang
+  satang: number; // quantity-weighted per-capsule rate, integer satang
   capsules: number; // capsules bought there, all-time
 };
 
@@ -49,7 +49,7 @@ behaviour:
 - **Repeat visits aggregate** before ranking, so a shop is ranked on all evidence, not its last
   receipt.
 - **Skips non-orders** (`delta <= 0`).
-- **Skips `price === 0`** entirely. Zero price means *cost unknown* (e.g. an opening-balance row for
+- **Skips `price === 0`** entirely. Zero price means _cost unknown_ (e.g. an opening-balance row for
   stock already owned), not free; counting it would let a shop win on no evidence.
 - **Skips an empty `shop`** — those orders still count toward the overall `costPerCapsule` average
   but cannot be named, so they cannot be ranked.
@@ -120,15 +120,15 @@ through `habitCost` and its tests for no gain. It simply stops being rendered.
 Array-literal cases in `core/stats.test.ts`, no DB and no mocks (the `core/` boundary test enforces
 this):
 
-| Case | Expectation |
-| --- | --- |
-| Two shops, different rates | Sorted cheapest first |
+| Case                                     | Expectation                                  |
+| ---------------------------------------- | -------------------------------------------- |
+| Two shops, different rates               | Sorted cheapest first                        |
 | One shop, two orders at different prices | Weighted by quantity, not averaged per order |
-| Order with `price === 0` | Excluded from that shop's rate entirely |
-| Order with `shop === ''` | Absent from the result |
-| Drinks (`delta < 0`) present | Ignored |
-| Two shops, equal rate, different volume | Higher-capsule shop ranks first |
-| No orders / no named shops | `[]` |
+| Order with `price === 0`                 | Excluded from that shop's rate entirely      |
+| Order with `shop === ''`                 | Absent from the result                       |
+| Drinks (`delta < 0`) present             | Ignored                                      |
+| Two shops, equal rate, different volume  | Higher-capsule shop ranks first              |
+| No orders / no named shops               | `[]`                                         |
 
 Plus one regression assertion that `costPerCapsule`'s `cheapestShop` is unchanged after the
 refactor.

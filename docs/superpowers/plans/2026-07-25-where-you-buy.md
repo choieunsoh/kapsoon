@@ -26,10 +26,12 @@
 ### Task 1: `shopRates()` and the `costPerCapsule` delegation
 
 **Files:**
+
 - Modify: `src/features/coffee/core/stats.ts:51-103` (the `CapsuleCost` type and `costPerCapsule`)
 - Test: `src/features/coffee/core/stats.test.ts` (append after the existing `costPerCapsule` block, which ends at line 186)
 
 **Interfaces:**
+
 - Consumes: `Movement` from `./movement` (already imported at the top of `stats.ts`).
 - Produces, for Task 2:
   - `export type ShopRate = { shop: string; satang: number; capsules: number }`
@@ -242,10 +244,12 @@ git commit -m "feat(coffee): rank every shop by its per-capsule rate" -m "costPe
 ### Task 2: The `Where you buy` Dashboard section
 
 **Files:**
+
 - Modify: `src/features/coffee/components/DashboardView.tsx` (imports; delete the `Cheapest at` row at lines 165-171; add the new section between the cost block and `When you drink`)
 - Modify: `src/features/coffee/dashboard-view.test.tsx` (two existing assertions collide with the new table — see Step 1)
 
 **Interfaces:**
+
 - Consumes: `shopRates`, `type ShopRate` from `../core/stats` (Task 1); `formatSatang` from `../core/money` (already imported).
 - Produces: nothing consumed by a later task.
 
@@ -267,21 +271,21 @@ import { render, screen, within } from '@testing-library/react';
 Replace the calendar assertion (line 186) inside `test('the calendar renders month tables that carry each day count as text', ...)`:
 
 ```ts
-  expect(screen.getAllByRole('table').length).toBeGreaterThan(0);
-  // Scoped to the month table by its accessible name ("July 2026" — the visible month heading,
-  // via aria-labelledby). The page now renders a second table, and an unscoped columnheader count
-  // would be totalling weekday headers together with the shop table's.
-  const monthTable = screen.getByRole('table', { name: /\d{4}$/ });
-  expect(within(monthTable).getAllByRole('columnheader')).toHaveLength(7);
-  expect(screen.getAllByText(/: 2 capsules/).length).toBeGreaterThan(0);
+expect(screen.getAllByRole('table').length).toBeGreaterThan(0);
+// Scoped to the month table by its accessible name ("July 2026" — the visible month heading,
+// via aria-labelledby). The page now renders a second table, and an unscoped columnheader count
+// would be totalling weekday headers together with the shop table's.
+const monthTable = screen.getByRole('table', { name: /\d{4}$/ });
+expect(within(monthTable).getAllByRole('columnheader')).toHaveLength(7);
+expect(screen.getAllByText(/: 2 capsules/).length).toBeGreaterThan(0);
 ```
 
 Replace the price assertion (line 259) inside `test('an order with no cups in the window prints the price without a rate of zeros', ...)`:
 
 ```ts
-  // By test id, not by text: the shop table below prints the same ฿20.00 for Tops, and getByText
-  // throws on two matches. Same reason data-testid="trend-average" exists.
-  expect(screen.getByTestId('cost-per-capsule')).toHaveTextContent(formatSatang(2_000));
+// By test id, not by text: the shop table below prints the same ฿20.00 for Tops, and getByText
+// throws on two matches. Same reason data-testid="trend-average" exists.
+expect(screen.getByTestId('cost-per-capsule')).toHaveTextContent(formatSatang(2_000));
 ```
 
 Now append the new tests to the same file:
@@ -365,29 +369,28 @@ const SHOPS_HEADING_ID = 'where-you-buy';
 **3c.** Derive the rates beside the other stats calls (after `const calendar = monthGrids(movements);`):
 
 ```ts
-  const rates = shopRates(movements);
+const rates = shopRates(movements);
 ```
 
 **3d.** Give the cost hero a test id — `DashboardView.tsx:130`:
 
 ```tsx
-              <span
-                data-testid="cost-per-capsule"
-                className="tnum text-[30px] font-semibold leading-none"
-              >
-                {formatSatang(cost.perCapsule)}
-              </span>
+<span data-testid="cost-per-capsule" className="tnum text-[30px] font-semibold leading-none">
+  {formatSatang(cost.perCapsule)}
+</span>
 ```
 
 **3e.** Delete the `Cheapest at` row — the whole conditional at lines 166-171:
 
 ```tsx
-              {cost.cheapestShop ? (
-                <div className="flex items-baseline justify-between border-t border-[var(--color-border)] py-2.5">
-                  <dt className="text-sm text-[var(--color-muted)]">Cheapest at</dt>
-                  <dd className="font-semibold">{cost.cheapestShop}</dd>
-                </div>
-              ) : null}
+{
+  cost.cheapestShop ? (
+    <div className="flex items-baseline justify-between border-t border-[var(--color-border)] py-2.5">
+      <dt className="text-sm text-[var(--color-muted)]">Cheapest at</dt>
+      <dd className="font-semibold">{cost.cheapestShop}</dd>
+    </div>
+  ) : null;
+}
 ```
 
 The surrounding `<dl>` stays — it still holds the `You order` cadence row.
@@ -395,22 +398,26 @@ The surrounding `<dl>` stays — it still holds the `You order` cadence row.
 **3f.** Insert the new section between the closing `</div>` of block 2 (`What it costs`, line 195) and the opening of block 3 (`When you drink`, line 197):
 
 ```tsx
-      {/* 3 — Where you buy. Renders only when an order actually names a shop: with nothing to rank
+{
+  /* 3 — Where you buy. Renders only when an order actually names a shop: with nothing to rank
           this would be an empty rounded rectangle, which is the failure mode PRODUCT.md names.
           It replaces the old "Cheapest at" row, which named a winner without showing the field.
           A real <table>: three labelled columns is what a table is for, and it gives a screen
-          reader row/column navigation that the two-value <dl> rows above cannot. */}
-      {rates.length > 0 ? (
-        <div className="border-t border-[var(--color-border)] pt-6">
-          <h2
-            id={SHOPS_HEADING_ID}
-            className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]"
-          >
-            Where you buy
-          </h2>
-          <ShopTable rates={rates} />
-        </div>
-      ) : null}
+          reader row/column navigation that the two-value <dl> rows above cannot. */
+}
+{
+  rates.length > 0 ? (
+    <div className="border-t border-[var(--color-border)] pt-6">
+      <h2
+        id={SHOPS_HEADING_ID}
+        className="text-[11px] uppercase tracking-[0.1em] text-[var(--color-muted)]"
+      >
+        Where you buy
+      </h2>
+      <ShopTable rates={rates} />
+    </div>
+  ) : null;
+}
 ```
 
 **3g.** Add the component beside `SpendBars` at the bottom of the file:
@@ -440,10 +447,7 @@ function ShopTable({ rates }: { rates: ShopRate[] }) {
           <tr key={rate.shop} className="border-t border-[var(--color-border)]">
             {/* A shop name is unbounded user data in the narrowest column on a 360px screen —
                 break-words, the same treatment the blend line on Home gets. */}
-            <th
-              scope="row"
-              className="min-w-0 break-words py-2.5 text-left text-sm font-medium"
-            >
+            <th scope="row" className="min-w-0 break-words py-2.5 text-left text-sm font-medium">
               {rate.shop}
             </th>
             <td className="tnum whitespace-nowrap py-2.5 text-right font-semibold">
@@ -485,7 +489,7 @@ git commit -m "feat(coffee): show every shop's per-capsule rate on the dashboard
 
 **Spec coverage.** `shopRates()` with all five documented rules → Task 1 Step 3. `costPerCapsule` delegation → Task 1 Step 3. All-time window → pinned in the comment and by reusing the existing all-time exclusion rules. Section placed third with matching chrome → Task 2 Step 3f. `<table>`, `tnum`, right-aligned figures, `break-words`, no row cap → Step 3g. Renders nothing when empty → Step 3f guard, tested. Single shop renders → tested. `Cheapest at` deleted, `HabitCost.cheapestShop` retained on the type → Step 3e. Every test-table row in the spec → Task 1 Step 1.
 
-**Deviation from the spec, deliberate:** the spec did not specify sort behaviour at sub-satang precision. This plan sorts on the *rounded* rate, which can reorder a knife-edge pair relative to the old `costPerCapsule` ranking. Rationale is in the code comment and pinned by a test.
+**Deviation from the spec, deliberate:** the spec did not specify sort behaviour at sub-satang precision. This plan sorts on the _rounded_ rate, which can reorder a knife-edge pair relative to the old `costPerCapsule` ranking. Rationale is in the code comment and pinned by a test.
 
 **Type consistency.** `ShopRate` fields (`shop`, `satang`, `capsules`) are used identically in Task 1's tests, Task 1's implementation, and Task 2's `ShopTable`. `shopRates` takes `Pick<Movement, 'delta' | 'price' | 'shop'>[]` throughout, and Task 2 passes the full `Movement[]`, which satisfies it.
 

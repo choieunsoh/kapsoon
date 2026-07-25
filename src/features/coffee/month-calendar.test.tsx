@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test } from 'vitest';
-import { DARK_INK_FROM, MonthCalendar, SHADES } from './components/MonthCalendar';
+import { DARK_INK_FROM, MonthCalendar, resolveSwipe, SHADES } from './components/MonthCalendar';
 import type { MonthGrids } from './stats';
 
 const JAN_2026 = new Date(2026, 0, 1).getTime();
@@ -137,6 +137,27 @@ test('the visible month label is a live region', () => {
   render(<MonthCalendar data={twoMonths()} today={FEB_20} />);
 
   expect(screen.getByText('February 2026')).toHaveAttribute('aria-live', 'polite');
+});
+
+// ── The swipe decision ────────────────────────────────────────────────────────
+// jsdom implements no pointer capture, so the gesture itself is not simulable here — the branch it
+// turns on is, and that is where the direction bug would live.
+test('a drag shorter than the threshold changes nothing', () => {
+  expect(resolveSwipe(0)).toBe(0);
+  expect(resolveSwipe(43)).toBe(0);
+  expect(resolveSwipe(-43)).toBe(0);
+});
+
+// months is newest-first, so walking BACK in time walks UP the array. Getting this backwards is the
+// whole failure mode of a swipe handler, and it looks identical in code either way.
+test('dragging right goes back in time, dragging left goes forward', () => {
+  expect(resolveSwipe(44)).toBe(1);
+  expect(resolveSwipe(-44)).toBe(-1);
+});
+
+test('the threshold is inclusive at exactly the boundary', () => {
+  expect(resolveSwipe(44, 44)).toBe(1);
+  expect(resolveSwipe(-44, 44)).toBe(-1);
 });
 
 // Shading is ABSOLUTE, not relative to the busiest day: the same count must be the same colour in

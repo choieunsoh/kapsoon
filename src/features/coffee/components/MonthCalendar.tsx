@@ -1,6 +1,7 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import type { PointerEvent } from 'react';
 import { startOfToday } from '../datetime';
 import type { MonthGrid, MonthGrids } from '../stats';
 import { ChevronDownIcon } from './icons';
@@ -48,6 +49,22 @@ export const SHADES = [0, 30, 45, 62, 85, 100] as const;
 // ramp enough range to be worth shading at all.
 export const DARK_INK_FROM = 85;
 
+// Ported from moniflow's CycleSwipe, which solves the same problem (drag sideways to change the
+// period a chart is showing). Same numbers: 44px of travel to commit — the app's minimum tap target,
+// so a swipe has to out-travel a tap before it counts — and the grid trails the finger at half speed
+// as the affordance, then springs back if the gesture falls short.
+const THRESHOLD = 44;
+const DAMP = 0.5;
+
+// How far to STEP THE INDEX for a horizontal drag of `dx` px. months is newest-first, so a rightward
+// drag (dx > 0) walks back in time and therefore UP the array. Pure and exported because jsdom has no
+// pointer capture: simulating the gesture is a fight, while the decision it turns on is one branch.
+export function resolveSwipe(dx: number, threshold = THRESHOLD): -1 | 0 | 1 {
+  if (dx <= -threshold) return -1; // dragged left → forward in time → newer month
+  if (dx >= threshold) return 1; // dragged right → back in time → older month
+  return 0;
+}
+
 // Which days you drank, one month at a time — the Dashboard's third block. Opens on the current
 // month for free: monthGrids returns months newest-first (see its contiguous-months contract), so
 // index 0 IS the current month and the initial state needs no clock read of its own.
@@ -69,6 +86,10 @@ export function MonthCalendar({
   const [index, setIndex] = useState(0);
   // The visible month heading doubles as the table's accessible name, so the month is written once.
   const headingId = useId();
+  // Live gesture state: where the finger went down, and how far it has travelled since.
+  const startX = useRef<number | null>(null);
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
 
   // Orders on file but no cups ever → nothing to lay out. The block keeps its heading; this is the
   // one honest line, mirroring how the cost block degrades to "no orders logged yet". Declared after
@@ -86,13 +107,39 @@ export function MonthCalendar({
 
   const label = monthLabel.format(month.at);
 
+  // Both the buttons and the swipe land here, so the ends of the log are enforced in one place.
+  const step = (delta: number): void =>
+    setIndex(Math.max(0, Math.min(at + delta, data.months.length - 1)));
+
+  function onPointerDown(e: PointerEvent<HTMLDivElement>): void {
+    startX.current = e.clientX;
+    setDragging(true);
+    // Capture so the gesture survives the finger leaving the grid mid-drag.
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: PointerEvent<HTMLDivElement>): void {
+    if (startX.current === null) return;
+    setDx(e.clientX - startX.current);
+  }
+
+  // Also the pointercancel handler: a cancelled gesture must reset the transform, or the grid is
+  // left parked off-centre with no finger to bring it back.
+  function onPointerUp(): void {
+    if (startX.current === null) return;
+    step(resolveSwipe(dx));
+    startX.current = null;
+    setDragging(false);
+    setDx(0);
+  }
+
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between gap-2">
         {/* Older is FORWARD through the array, because months are newest-first. */}
         <MonthStep
           label="Previous month"
-          onClick={() => setIndex(at + 1)}
+          onClick={() => step(1)}
           disabled={at >= data.months.length - 1}
           className="rotate-90"
         />
@@ -107,13 +154,32 @@ export function MonthCalendar({
         </p>
         <MonthStep
           label="Next month"
-          onClick={() => setIndex(at - 1)}
+          onClick={() => step(-1)}
           disabled={at <= 0}
           className="-rotate-90"
         />
       </div>
 
-      <MonthTable month={month} labelledBy={headingId} today={today} />
+      {/* Only the grid follows the finger, not the stepper header above it: the header holds the
+          controls, and sliding a disabled button out from under a thumb reads as a glitch. touch-pan-y
+          claims the horizontal axis and leaves vertical scrolling native, so dragging down the
+          Dashboard still scrolls the page rather than fighting this. */}
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        // A mouse drag would otherwise start the browser's native drag and swallow the gesture.
+        onDragStart={(e) => e.preventDefault()}
+        draggable={false}
+        className="touch-pan-y select-none"
+        style={{
+          transform: `translateX(${dragging ? dx * DAMP : 0}px)`,
+          transition: dragging ? 'none' : 'transform var(--dur-fast) var(--ease-out)',
+        }}
+      >
+        <MonthTable month={month} labelledBy={headingId} today={today} />
+      </div>
     </div>
   );
 }

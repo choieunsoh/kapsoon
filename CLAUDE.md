@@ -15,20 +15,29 @@ Organize by DOMAIN, not layer. A feature owns its hooks, components, and tests u
 movements (a signed `delta` per event — negative for a cup drunk, positive for an order) with
 integer minor-unit amounts. It replaced the scaffold's `ledger/` worked example.
 
+**`coffee/core/` is the platform-free half of that feature** — the `Movement` type and its guards,
+every pure reducer (stock, runway, spend, day-entry collapsing), `stats`, `datetime`, `money`,
+backup serialization, and the Drizzle schema. It runs unmodified under Node or a native runtime.
+**Nothing in `core/` may import outside `core/` (bar `drizzle-orm`) or touch a browser global** —
+`core/boundary.test.ts` checks both and fails the build otherwise. `db.ts` owns SQLocal/OPFS
+persistence plus the `navigator`/`localStorage` helpers and imports _from_ core, never the reverse.
+That direction is the whole point: it keeps the domain reusable off the web, so verify with the
+boundary test rather than by eye.
+
 ## TypeScript house bans (enforced by tsc + oxlint where possible)
 
 No `any`, no `as` casts (`as const` is fine), no `!`, no `// @ts-*`. `type` over `interface`.
 Prefer `for..of`. Use type guards to narrow `unknown`. Money is always an integer minor-unit
-`number` — never a float (see `coffee/db.ts`'s `assertIntegerMinor` guard).
+`number` — never a float (see `coffee/core/movement.ts`'s `assertIntegerMinor` guard).
 
 ## Data layer: SQLite (SQLocal + OPFS) via Drizzle
 
 Real SQL in the browser: SQLocal (`@sqlite.org/sqlite-wasm`) persists to OPFS, queried through
-`drizzle-orm/sqlite-proxy` — see `src/features/coffee/db.ts` / `schema.ts`. Offline-first,
+`drizzle-orm/sqlite-proxy` — see `src/features/coffee/db.ts` / `core/schema.ts`. Offline-first,
 single-user, no auth. **Requires cross-origin isolation** (`next.config.ts` sets
 `Cross-Origin-Embedder-Policy: require-corp` + `Cross-Origin-Opener-Policy: same-origin`) — don't
 remove those headers, OPFS persistence silently breaks without them. Solid on Android/Chrome;
-weaker on iOS Safari. Backup is NOT the `.sqlite` file: `coffee/backup.ts` serializes the movement
+weaker on iOS Safari. Backup is NOT the `.sqlite` file: `coffee/core/backup.ts` serializes the movement
 log to JSON and writes it as `.txt` (not `.json`) because Chromium's share-sheet allowlist refuses
 JSON outright — the MIME must stay exactly `text/plain`. Keep UI components data-layer-agnostic:
 they import the feature's `use-*.ts` hook, never `db.ts` directly.

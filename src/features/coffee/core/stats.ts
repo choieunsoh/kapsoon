@@ -1,4 +1,4 @@
-import { type Movement } from './db';
+import { type Movement } from './movement';
 import { dayKey, startOfDaysAgo, startOfMonth, startOfMonthsAgo } from './datetime';
 
 // Pure derivations for the Dashboard: plain rows in, numbers out. No React, no DB access, no async,
@@ -37,7 +37,7 @@ export function dailyCups(rows: Pick<Movement, 'delta' | 'at'>[], days: number):
 // they're real days you didn't drink, and dropping them would answer "how much on days I drank" —
 // a different, much higher number than "how much a day".
 //
-// Deliberately NOT reused from db.ts's consumptionPerDay, which is what Home's runway and pace use:
+// Deliberately NOT reused from movement.ts's consumptionPerDay, which Home's runway and pace use:
 // that's a 14-day window and the chart draws 30, so borrowing it would put the line somewhere other
 // than the visual middle of its own bars. The two figures are meant to differ, which is why the
 // dashboard names its window on screen.
@@ -154,8 +154,8 @@ const MS_PER_DAY = 86_400_000;
 // number of gaps the median is the mean of the two middle values.
 //
 // `now` is a parameter rather than a Date.now() call so the behaviour is pinnable in tests, matching
-// consumptionPerDay in db.ts. Rows are sorted rather than assumed ordered: they arrive newest-first
-// from listMovements, and every other function here is order-independent.
+// consumptionPerDay in movement.ts. Rows are sorted rather than assumed ordered: they arrive
+// newest-first from listMovements, and every other function here is order-independent.
 export function orderCadence(
   rows: Pick<Movement, 'delta' | 'at'>[],
   now = Date.now(),
@@ -220,9 +220,9 @@ export type HabitCost = {
 // returned as null, applied to the one place it previously wasn't. With orders on file but no cups
 // in the window (a month away, a switch to another machine), price × 0 printed "about ฿0.00 a day ·
 // ฿0.00 a month" under a real per-capsule price, which does not read as "unknown" — it reads as a
-// claim that the habit is now free, sitting directly beneath the evidence that it isn't. db.ts's
-// consumptionPerDay already returns null for exactly this case and HomeView already guards on it;
-// this is the same rule reaching the last function that skipped it.
+// claim that the habit is now free, sitting directly beneath the evidence that it isn't.
+// movement.ts's consumptionPerDay already returns null for exactly this case and HomeView already
+// guards on it; this is the same rule reaching the last function that skipped it.
 export function habitCost(
   rows: Pick<Movement, 'delta' | 'price' | 'shop' | 'at'>[],
   days = 30,

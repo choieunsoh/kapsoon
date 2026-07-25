@@ -1,6 +1,6 @@
 // Backup serialization. Pure and node-safe — no DB, no DOM — so the round-trip is unit-testable.
 
-import { isMovement, type Movement } from './db';
+import { isMovement, type Movement } from './movement';
 import { dayKey } from './datetime';
 
 // JSON bytes, but shipped as .txt/text/plain — NOT .json — because Chromium's shared-file allowlist

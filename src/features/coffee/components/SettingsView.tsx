@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { UseCoffee } from '../use-coffee';
-import { parseBackup, serializeBackup } from '../backup';
+import { parseBackup, serializeBackup } from '../core/backup';
 import { isStoragePersisted } from '../db';
 import { DriveBackup } from '../drive/DriveBackup';
 import { saveFile } from '@shared/save-file';

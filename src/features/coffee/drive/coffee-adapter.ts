@@ -8,7 +8,7 @@
 // "replace everything" — DriveBackup skips the confirm the template used.
 
 import { listMovements, importMovements, writeLastBackupAt } from '../db';
-import { serializeBackup, parseBackup } from '../backup';
+import { serializeBackup, parseBackup } from '../core/backup';
 import { setBackupAdapter, type BackupAdapter } from './backup-adapter';
 
 const entries = new Intl.NumberFormat('en-US');

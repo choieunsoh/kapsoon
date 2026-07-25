@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import type { Movement } from '../db';
-import { fromDateTimeLocal, toDateTimeLocal } from '../datetime';
+import type { Movement } from '../core/movement';
+import { fromDateTimeLocal, toDateTimeLocal } from '../core/datetime';
 
 type Props = {
   movement: Movement | null; // the row being edited, or null when closed

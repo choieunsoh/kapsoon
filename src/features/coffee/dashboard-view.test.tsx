@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import type { Movement } from './db';
+import type { Movement } from './core/movement';
 import { ACCENT_INK_FLOOR } from './components/chart-ink';
 import { DashboardView } from './components/DashboardView';
-import { startOfDaysAgo } from './datetime';
-import { formatSatang } from './money';
-import { averageCups, dailyCups } from './stats';
+import { startOfDaysAgo } from './core/datetime';
+import { formatSatang } from './core/money';
+import { averageCups, dailyCups } from './core/stats';
 import { coffeeWith } from '../../../test/coffee-fixture';
 
 // Mirrors TrendChart's own date formatter exactly — the assertions below build the same aria-label

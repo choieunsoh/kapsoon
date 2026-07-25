@@ -1,7 +1,7 @@
 'use client';
 
 import type { UseCoffee } from '../use-coffee';
-import { formatSatang } from '../money';
+import { formatSatang } from '../core/money';
 import {
   averageCups,
   dailyCups,
@@ -10,7 +10,7 @@ import {
   orderCadence,
   spendByMonth,
   type MonthSpend,
-} from '../stats';
+} from '../core/stats';
 import { ACCENT_INK_FLOOR } from './chart-ink';
 import { MonthCalendar } from './MonthCalendar';
 import { TrendChart } from './TrendChart';

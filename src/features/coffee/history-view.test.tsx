@@ -1,9 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
-import type { Movement } from './db';
+import type { Movement } from './core/movement';
 import { HistoryView } from './components/HistoryView';
-import { formatMonthLabel, startOfDaysAgo } from './datetime';
+import { formatMonthLabel, startOfDaysAgo } from './core/datetime';
 import { coffeeWith } from '../../../test/coffee-fixture';
 
 // History's job after the redesign is to stop rendering 597 identical drink rows. These tests pin

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test } from 'vitest';
 import { DARK_INK_FROM, MonthCalendar, resolveSwipe, SHADES } from './components/MonthCalendar';
-import type { MonthGrids } from './stats';
+import type { MonthGrids } from './core/stats';
 
 const JAN_2026 = new Date(2026, 0, 1).getTime();
 const FEB_2026 = new Date(2026, 1, 1).getTime();

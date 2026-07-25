@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import type { UseCoffee } from '../use-coffee';
-import { consumptionPerDay } from '../db';
-import { startOfDaysAgo, startOfMonth, startOfToday } from '../datetime';
-import { formatSatang } from '../money';
+import { consumptionPerDay } from '../core/movement';
+import { startOfDaysAgo, startOfMonth, startOfToday } from '../core/datetime';
+import { formatSatang } from '../core/money';
 import { MovementRow } from './MovementRow';
 
 const number = new Intl.NumberFormat('en-US');

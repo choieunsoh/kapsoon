@@ -1,6 +1,6 @@
 'use client';
 
-import type { CupDay } from '../stats';
+import type { CupDay } from '../core/stats';
 import { ACCENT_INK_FLOOR } from './chart-ink';
 
 const dayShort = new Intl.DateTimeFormat('en-US', {

@@ -28,7 +28,12 @@ devices, use the in-app backup (file export or Google Drive) and restore.
 
 Real SQL in the browser: [SQLocal](https://sqlocal.dev) (`@sqlite.org/sqlite-wasm`) persists to
 OPFS and is queried through `drizzle-orm/sqlite-proxy` — see `src/features/coffee/db.ts` and
-`schema.ts`. No server, no account, no sync conflicts.
+`core/schema.ts`. No server, no account, no sync conflicts.
+
+The domain itself lives in `src/features/coffee/core/` and is deliberately platform-free: the
+movement type, every pure reducer (stock, runway, spend), stats, backup serialization and the
+schema, none of which import a browser API. `db.ts` imports _from_ core, never the reverse, so the
+logic stays reusable outside a browser. `core/boundary.test.ts` enforces that.
 
 **OPFS requires the page to be cross-origin isolated**, so `next.config.ts` serves
 `Cross-Origin-Embedder-Policy: require-corp` and `Cross-Origin-Opener-Policy: same-origin` on every

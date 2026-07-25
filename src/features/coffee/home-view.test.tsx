@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-import type { Movement } from './db';
+import type { Movement } from './core/movement';
 import { HomeView } from './components/HomeView';
 import { coffeeWith } from '../../../test/coffee-fixture';
 

@@ -37,7 +37,11 @@ test('a healthy stash leads with the count and stays quiet', () => {
   // carries the unit label is what keeps this from passing if the two are ever swapped back.
   expect(screen.getByText('20')).toBeInTheDocument();
   expect(screen.getByText('capsules left')).toBeInTheDocument();
-  expect(screen.getByText(/10 days left · 2 a day/)).toBeInTheDocument();
+  // The runway carries the date it lands on as well as the count — the exact date arithmetic is
+  // pinned in datetime.test.ts, so this only asserts it reaches the line.
+  expect(
+    screen.getByText(/^10 days left \([A-Z][a-z]{2} \d{1,2}\) · 2 a day$/),
+  ).toBeInTheDocument();
   // The runway must NOT be the hero numeral — 10 appears only inside the supporting sentence.
   expect(screen.queryByText('10')).not.toBeInTheDocument();
   // Nothing to act on yet, so the page doesn't grow a second way to add an order.

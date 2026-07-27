@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { UseCoffee } from '../use-coffee';
 import { consumptionPerDay } from '../core/movement';
-import { startOfDaysAgo, startOfMonth, startOfToday } from '../core/datetime';
+import { formatDaysFromNow, startOfDaysAgo, startOfMonth, startOfToday } from '../core/datetime';
 import { formatSatang } from '../core/money';
 import { MovementRow } from './MovementRow';
 
@@ -79,7 +79,12 @@ export function HomeView({ coffee, onAdd }: { coffee: UseCoffee; onAdd: () => vo
   const hero = !ready ? '—' : number.format(stock);
   const heroUnit = !ready ? '' : stock === 1 ? 'capsule left' : 'capsules left';
 
-  const daysLine = `${number.format(daysLeft ?? 0)}${NBSP}${daysLeft === 1 ? 'day' : 'days'} left`;
+  // "10 days left (Aug 6)". A count of days is the answer to "should I reorder?"; the date is the
+  // answer to "does that land before the trip?" — cheap to add here, and neither replaces the other.
+  const daysLine =
+    daysLeft === null
+      ? ''
+      : `${number.format(daysLeft)}${NBSP}${daysLeft === 1 ? 'day' : 'days'} left (${formatDaysFromNow(daysLeft)})`;
 
   // Escalates only when there's something to act on — a healthy runway stays quiet, so the warning
   // still means something when it appears. Colour is never the only signal: the wording changes too.

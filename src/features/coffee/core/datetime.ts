@@ -11,6 +11,12 @@ const dayFull = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
 });
+const dayShort = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const dayShortYear = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
 const dateISOLocal = new Intl.DateTimeFormat('en-CA'); // YYYY-MM-DD in local tz
 const monthFull = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
 
@@ -86,6 +92,19 @@ export function formatDayLabel(at: number): string {
   if (at >= today) return 'Today';
   if (at >= today - MS_PER_DAY) return 'Yesterday';
   return dayFull.format(at);
+}
+
+// The calendar date `n` days from now — "Aug 24". Steps by calendar date rather than adding
+// n × 86_400_000ms so a DST shift inside the window doesn't slide the answer a day. Gains the year
+// once it lands outside this one: the runway runs to years when the pace is a cup a fortnight, and
+// a bare "Aug 24" four years out reads as this August.
+export function formatDaysFromNow(n: number): string {
+  const now = new Date();
+  const then = new Date(now);
+  then.setDate(then.getDate() + n);
+  return then.getFullYear() === now.getFullYear()
+    ? dayShort.format(then)
+    : dayShortYear.format(then);
 }
 
 // Whether two timestamps fall in the same local calendar month. Date arithmetic rather than slicing

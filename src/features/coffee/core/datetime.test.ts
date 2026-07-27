@@ -1,5 +1,11 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { formatMonthLabel, isSameMonth, startOfMonthsAgo, startOfPrevMonth } from './datetime';
+import {
+  formatDaysFromNow,
+  formatMonthLabel,
+  isSameMonth,
+  startOfMonthsAgo,
+  startOfPrevMonth,
+} from './datetime';
 
 // These pin the clock to month-end dates specifically because `setDate(1)` must run BEFORE
 // `setMonth()` in both functions under test. Reverse that order and, on the 31st, `setMonth(n-1)`
@@ -72,6 +78,24 @@ test('month comparison is calendar-based, not a 30-day window', () => {
   expect(isSameMonth(Date.UTC(2026, 5, 30, 12), Date.UTC(2026, 6, 1, 12))).toBe(false);
   // Same month number, different year.
   expect(isSameMonth(Date.UTC(2025, 6, 15, 12), Date.UTC(2026, 6, 15, 12))).toBe(false);
+});
+
+// Home prints this next to the runway ("10 days left (Aug 6)"), so an off-by-one or a month that
+// doesn't roll over is a wrong promise about when the coffee runs out.
+test('the run-out date counts calendar days forward and rolls the month over', () => {
+  pin('2026-07-27T21:00:00');
+
+  expect(formatDaysFromNow(0)).toBe('Jul 27');
+  expect(formatDaysFromNow(1)).toBe('Jul 28');
+  expect(formatDaysFromNow(10)).toBe('Aug 6');
+});
+
+// A pace of a cup a fortnight projects a runway measured in years, and a bare "Aug 24" that far out
+// reads as this August.
+test('a run-out date past this year names the year', () => {
+  pin('2026-07-27T21:00:00');
+
+  expect(formatDaysFromNow(200)).toBe('Feb 12, 2027');
 });
 
 test('a month label names the month and the year', () => {

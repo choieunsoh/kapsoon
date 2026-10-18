@@ -48,9 +48,12 @@ There is no server, so the on-device log is the only copy — two ways to protec
   written as `.txt` rather than `.json` so Android's share sheet accepts it (the bytes are JSON
   either way).
 - **Google Drive** (`src/features/coffee/drive/`): optional client-side backup to the user's own
-  Drive via the Google Identity Services token flow and the `drive.file` REST API — no backend, no
-  refresh token. Inert until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set; see that file's `client-id.ts`
-  and set the OAuth **Authorized JavaScript origins** to your dev/prod URLs.
+  Drive via the OAuth implicit **redirect** flow and the `drive.file` REST API — no backend, no
+  refresh token. (Not the GIS popup: COOP `same-origin` severs the popup's opener, so it never
+  delivers a token.) Inert until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set; see that file's
+  `client-id.ts`, and list your dev/prod origins (e.g. `https://kapsoon.vercel.app`,
+  `http://localhost:3000`, no trailing slash) under both **Authorized JavaScript origins** and
+  **Authorized redirect URIs**.
 
 ## Deploy
 

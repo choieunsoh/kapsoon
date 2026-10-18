@@ -8,12 +8,17 @@ import { useEffect } from 'react';
 import { getBackupAdapter } from './backup-adapter';
 import { readConnection } from './connection';
 import { shouldAutoSync, STALE_HOURS } from './sync-decision';
-import { backupNow } from './actions';
+import { backupNow, resumeAfterRedirect } from './actions';
 
 export function useDriveSync(): void {
   useEffect(() => {
     let alive = true;
     void (async () => {
+      try {
+        if (await resumeAfterRedirect()) return; // back from Google: finish that, skip the auto-push
+      } catch {
+        return; // quiet degrade, as below
+      }
       const conn = readConnection();
       if (!conn.connected) return;
       const hasData = await getBackupAdapter().hasData();

@@ -5,7 +5,7 @@
 // re-renders; onSynced() is where the app stamps its local "last backup".
 
 import { getBackupAdapter } from './backup-adapter';
-import { requestToken, revokeAccess } from './gis';
+import { consumeAuthRedirect, requestToken, revokeAccess } from './token';
 import {
   findOrCreateFolder,
   uploadBackup,
@@ -40,7 +40,7 @@ async function pushWith(token: string): Promise<void> {
 }
 
 export async function connectDrive(): Promise<void> {
-  const token = await requestToken({ interactive: true });
+  const token = await requestToken({ interactive: true, resume: 'connect' });
   if (await getBackupAdapter().hasData()) {
     await pushWith(token);
   } else {
@@ -64,7 +64,7 @@ export async function backupNow(opts: { interactive: boolean }): Promise<boolean
   if (!(await getBackupAdapter().hasData())) return false; // nothing to lose
   let token: string;
   try {
-    token = await requestToken({ interactive: opts.interactive });
+    token = await requestToken({ interactive: opts.interactive, resume: 'backup' });
   } catch (err) {
     const conn = readConnection();
     writeConnection({ ...conn, needsReconnect: true });
@@ -75,11 +75,30 @@ export async function backupNow(opts: { interactive: boolean }): Promise<boolean
   return true;
 }
 
+// User-tapped, so it may redirect for a fresh token; after the round trip the user taps Restore again.
 export async function listDriveBackups(): Promise<DriveFile[]> {
-  const token = await requestToken({ interactive: false });
+  const token = await requestToken({ interactive: true });
   const conn = readConnection();
   const folderId = conn.folderId ?? (await findOrCreateFolder(token, DRIVE_FOLDER_NAME));
   return listBackups(token, folderId);
+}
+
+// Finish whatever sent the user to Google. Returns false on a normal load (nothing was pending) so the
+// caller can fall through to its usual work. A failed round trip on a live connection pauses auto-backup.
+export async function resumeAfterRedirect(): Promise<boolean> {
+  const r = consumeAuthRedirect();
+  if (r === null) return false;
+  if ('error' in r) {
+    const conn = readConnection();
+    if (conn.connected) {
+      writeConnection({ ...conn, needsReconnect: true });
+      bumpConnection();
+    }
+    return true;
+  }
+  if (r.resume === 'connect') await connectDrive();
+  else if (r.resume === 'backup') await backupNow({ interactive: false });
+  return true;
 }
 
 export async function restoreFromDrive(fileId: string): Promise<string | void> {

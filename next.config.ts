@@ -19,6 +19,13 @@ const config: NextConfig = {
         headers: [
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          // Never framed: blocks clickjacking of Restore / Disconnect / delete. Today a cross-site
+          // frame only gets partitioned (empty) storage, but that's browser behaviour, not ours.
+          // X-Frame-Options is the legacy twin for browsers without frame-ancestors.
+          // ponytail: frame-ancestors only — a full CSP (script-src) needs per-request nonces for
+          // Next's inline bootstrap scripts; add it with middleware if a third-party script appears.
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
         ],
       },
     ];

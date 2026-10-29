@@ -20,19 +20,30 @@ export type Movement = {
 };
 
 // Guard untrusted rows at the trust boundary — the seed JSON and restored backups both arrive as
-// parsed `unknown` from outside the app.
+// parsed `unknown` from outside the app. Holds a restored row to the same invariants the UI write
+// path enforces (assertPositiveInt / assertIntegerMinor): whole-capsule delta, non-negative integer
+// satang, integer epoch ms, and text columns that are actually text (they're NOT NULL in SQLite, so a
+// missing one would fail the whole import batch, not just the row).
 export function isMovement(v: unknown): v is Movement {
   return (
     typeof v === 'object' &&
     v !== null &&
     'id' in v &&
     typeof v.id === 'string' &&
+    'shop' in v &&
+    typeof v.shop === 'string' &&
+    'brand' in v &&
+    typeof v.brand === 'string' &&
+    'beanName' in v &&
+    typeof v.beanName === 'string' &&
     'delta' in v &&
-    typeof v.delta === 'number' &&
+    Number.isInteger(v.delta) &&
     'price' in v &&
+    Number.isInteger(v.price) &&
     typeof v.price === 'number' &&
+    v.price >= 0 &&
     'at' in v &&
-    typeof v.at === 'number'
+    Number.isInteger(v.at)
   );
 }
 

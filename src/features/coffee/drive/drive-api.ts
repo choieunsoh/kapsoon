@@ -56,9 +56,13 @@ function readFiles(body: unknown): DriveFile[] {
   return out;
 }
 
+// `'me' in owners` binds every lookup to the signed-in user's own files: a same-named folder (or
+// backup) someone else shares in must never become the upload target or a restore/prune candidate.
+const OWNED = "'me' in owners and trashed=false";
+
 export async function findOrCreateFolder(token: string, name: string): Promise<string> {
   const q = encodeURIComponent(
-    `name='${escapeQuery(name)}' and mimeType='${FOLDER_MIME}' and trashed=false`,
+    `name='${escapeQuery(name)}' and mimeType='${FOLDER_MIME}' and ${OWNED}`,
   );
   const listed = await driveFetch(token, `${API}/files?q=${q}&spaces=drive&fields=files(id,name)`, {
     method: 'GET',
@@ -75,7 +79,7 @@ export async function findOrCreateFolder(token: string, name: string): Promise<s
 }
 
 export async function listBackups(token: string, folderId: string): Promise<DriveFile[]> {
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const q = encodeURIComponent(`'${escapeQuery(folderId)}' in parents and ${OWNED}`);
   const res = await driveFetch(
     token,
     `${API}/files?q=${q}&orderBy=name desc&fields=files(id,name)`,
@@ -92,7 +96,7 @@ export async function uploadBackup(
 ): Promise<void> {
   // One file per day: if today's file exists, replace its media; otherwise create a new one.
   const q = encodeURIComponent(
-    `name='${escapeQuery(name)}' and '${folderId}' in parents and trashed=false`,
+    `name='${escapeQuery(name)}' and '${escapeQuery(folderId)}' in parents and ${OWNED}`,
   );
   const found = await driveFetch(token, `${API}/files?q=${q}&fields=files(id,name)`, {
     method: 'GET',
@@ -100,11 +104,15 @@ export async function uploadBackup(
   const existing = readFiles(await found.json());
 
   if (existing.length > 0 && existing[0] !== undefined) {
-    await driveFetch(token, `${UPLOAD}/files/${existing[0].id}?uploadType=media`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'text/plain' },
-      body: text,
-    });
+    await driveFetch(
+      token,
+      `${UPLOAD}/files/${encodeURIComponent(existing[0].id)}?uploadType=media`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text,
+      },
+    );
     return;
   }
 
@@ -123,10 +131,12 @@ export async function uploadBackup(
 }
 
 export async function downloadFile(token: string, fileId: string): Promise<string> {
-  const res = await driveFetch(token, `${API}/files/${fileId}?alt=media`, { method: 'GET' });
+  const res = await driveFetch(token, `${API}/files/${encodeURIComponent(fileId)}?alt=media`, {
+    method: 'GET',
+  });
   return res.text();
 }
 
 export async function deleteFile(token: string, fileId: string): Promise<void> {
-  await driveFetch(token, `${API}/files/${fileId}`, { method: 'DELETE' });
+  await driveFetch(token, `${API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 }

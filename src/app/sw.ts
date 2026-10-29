@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { NetworkOnly, Serwist } from 'serwist';
 
 // self.__SW_MANIFEST is injected by Serwist at build time. Type it via serwist's declaration
 // instead of forcing with `as`/`!` (which the house style bans).
@@ -17,7 +17,16 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  // Google API traffic carries a bearer token and returns backup contents. defaultCache's catch-all
+  // cross-origin NetworkFirst rule would store those responses (keyed by URL alone) in Cache Storage,
+  // where they outlive Disconnect. Matched first, so it wins over defaultCache.
+  runtimeCaching: [
+    {
+      matcher: ({ url }) => url.hostname.endsWith('.googleapis.com'),
+      handler: new NetworkOnly(),
+    },
+    ...defaultCache,
+  ],
 });
 
 serwist.addEventListeners();

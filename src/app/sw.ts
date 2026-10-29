@@ -30,3 +30,10 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Workers before the NetworkOnly rule above stored Drive responses (backup contents) in defaultCache's
+// 'cross-origin' cache. Nothing else writes there now (fonts are self-hosted), so its expiry never runs;
+// drop it on activate.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.delete('cross-origin'));
+});

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-10-29
+
+### Fixed
+
+- hold restored rows to the write-path invariants
+- forbid framing the app
+- keep Google API responses out of Cache Storage
+- revoke the cached token on disconnect and ignore unsolicited redirects
+- bind backup lookups to files the user owns
+
+### Other
+
+- merge security-hardening into main
+- ignore key and certificate files
+- pin the vercel CLI as a devDependency
+
 ## [1.4.2] - 2026-10-18
 
 ### Fixed

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { deleteFile, findOrCreateFolder, listBackups, uploadBackup } from './drive-api';
+import {
+  deleteFile,
+  findOrCreateFolder,
+  isOwnedFolder,
+  listBackups,
+  uploadBackup,
+} from './drive-api';
 
 const files = (list: { id: string; name: string }[]) =>
   new Response(JSON.stringify({ files: list }), { status: 200 });
@@ -32,6 +38,27 @@ describe('Drive lookups are bound to the signed-in owner', () => {
 
     expect(queryOf(fetchMock, 0)).toContain("'me' in owners");
     expect(queryOf(fetchMock, 1)).toContain("'me' in owners");
+  });
+
+  it('trusts a stored folder id only while it is a live folder the user owns', async () => {
+    const meta = (body: object, status = 200) => new Response(JSON.stringify(body), { status });
+    const folder = 'application/vnd.google-apps.folder';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(meta({ ownedByMe: true, trashed: false, mimeType: folder }))
+      .mockResolvedValueOnce(meta({ ownedByMe: false, trashed: false, mimeType: folder }))
+      .mockResolvedValueOnce(meta({ ownedByMe: true, trashed: true, mimeType: folder }))
+      .mockResolvedValueOnce(meta({ ownedByMe: true, trashed: false, mimeType: 'text/plain' }))
+      .mockResolvedValueOnce(meta({ error: 'notFound' }, 404))
+      .mockResolvedValueOnce(meta({ error: 'unauthorized' }, 401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await isOwnedFolder('tok', 'mine')).toBe(true);
+    expect(await isOwnedFolder('tok', 'shared-in')).toBe(false);
+    expect(await isOwnedFolder('tok', 'trashed')).toBe(false);
+    expect(await isOwnedFolder('tok', 'a-file')).toBe(false);
+    expect(await isOwnedFolder('tok', 'gone')).toBe(false);
+    await expect(isOwnedFolder('tok', 'x')).rejects.toThrow('401');
   });
 
   it('escapes ids in queries and paths', async () => {

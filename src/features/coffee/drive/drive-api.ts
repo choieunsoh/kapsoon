@@ -78,6 +78,29 @@ export async function findOrCreateFolder(token: string, name: string): Promise<s
   return readId(await created.json());
 }
 
+// A folderId stored before the owner-bound lookup existed was never checked, so re-verify it before
+// trusting it. 404 (deleted, or never visible) counts as "not ours" so the caller re-resolves instead
+// of failing every sync; any other error still throws.
+export async function isOwnedFolder(token: string, folderId: string): Promise<boolean> {
+  const res = await fetch(
+    `${API}/files/${encodeURIComponent(folderId)}?fields=ownedByMe,trashed,mimeType`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`Drive request failed: ${res.status}`);
+  const body: unknown = await res.json();
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'ownedByMe' in body &&
+    body.ownedByMe === true &&
+    'trashed' in body &&
+    body.trashed === false &&
+    'mimeType' in body &&
+    body.mimeType === FOLDER_MIME
+  );
+}
+
 export async function listBackups(token: string, folderId: string): Promise<DriveFile[]> {
   const q = encodeURIComponent(`'${escapeQuery(folderId)}' in parents and ${OWNED}`);
   const res = await driveFetch(

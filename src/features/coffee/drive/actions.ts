@@ -8,6 +8,7 @@ import { getBackupAdapter } from './backup-adapter';
 import { consumeAuthRedirect, requestToken, revokeAccess } from './token';
 import {
   findOrCreateFolder,
+  isOwnedFolder,
   uploadBackup,
   listBackups,
   downloadFile,
@@ -23,12 +24,19 @@ function todayIso(): string {
   return new Intl.DateTimeFormat('en-CA').format(new Date());
 }
 
+// The stored folderId, but only while it is still a live folder the user owns; otherwise re-resolve
+// through the owner-bound lookup. Costs one GET per sync.
+async function resolveFolder(token: string, stored: string | null): Promise<string> {
+  if (stored !== null && (await isOwnedFolder(token, stored))) return stored;
+  return findOrCreateFolder(token, DRIVE_FOLDER_NAME);
+}
+
 // Upload the current store with an already-obtained token, prune old backups, stamp lastSyncedAt, and
 // notify the app via onSynced.
 async function pushWith(token: string): Promise<void> {
   const adapter = getBackupAdapter();
   const conn = readConnection();
-  const folderId = conn.folderId ?? (await findOrCreateFolder(token, DRIVE_FOLDER_NAME));
+  const folderId = await resolveFolder(token, conn.folderId);
   const text = await adapter.serialize();
   await uploadBackup(token, folderId, `backup-${todayIso()}.txt`, text);
   const files = await listBackups(token, folderId);
@@ -79,7 +87,8 @@ export async function backupNow(opts: { interactive: boolean }): Promise<boolean
 export async function listDriveBackups(): Promise<DriveFile[]> {
   const token = await requestToken({ interactive: true });
   const conn = readConnection();
-  const folderId = conn.folderId ?? (await findOrCreateFolder(token, DRIVE_FOLDER_NAME));
+  const folderId = await resolveFolder(token, conn.folderId);
+  if (folderId !== conn.folderId) writeConnection({ ...conn, folderId });
   return listBackups(token, folderId);
 }
 

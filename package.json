@@ -16,8 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "release": "node scripts/release.ts",
-    "deploy": "npx vercel",
-    "deploy:prod": "npx vercel --prod"
+    "deploy": "vercel",
+    "deploy:prod": "vercel --prod"
   },
   "dependencies": {
     "@serwist/next": "^9.5.11",
@@ -46,6 +46,7 @@
     "simple-git": "^3.36.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
+    "vercel": "^65.7.0",
     "vite": "^8.1.3",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.10"

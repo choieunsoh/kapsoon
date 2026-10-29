@@ -71,11 +71,21 @@ export function clearToken(): void {
   if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
 }
 
-// Best-effort revocation of the Google grant, for "Disconnect". Only a currently-valid access token can
-// revoke the grant, so we revoke the cached one when we hold it; if none is valid we skip rather than
-// redirect just to fetch a token (disconnect must never prompt). The local cache is cleared either way.
+// A Disconnect in another tab removes the stored token; drop this tab's in-memory copy with it so it
+// can't keep using a token the user just revoked. (key === null is localStorage.clear().)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if ((e.key === TOKEN_KEY || e.key === null) && e.newValue === null) tokenMemo = null;
+  });
+}
+
+// Best-effort revocation of the Google grant, for "Disconnect". Revoke whatever token is cached — NOT
+// only one validCachedToken() accepts: that check expires tokens EXPIRY_MARGIN_S early, so a token in
+// its last minutes is still live at Google and would leave the grant standing. A truly expired token
+// just fails the revoke, which is swallowed. With no cached token we skip rather than redirect just to
+// fetch one (disconnect must never prompt). The local cache is cleared either way.
 export async function revokeAccess(): Promise<void> {
-  const token = validCachedToken();
+  const token = loadCachedToken()?.token ?? null;
   clearToken();
   if (token === null) return;
   await fetch('https://oauth2.googleapis.com/revoke', {
@@ -125,14 +135,18 @@ function redirectToGoogle(resume: Resume): Promise<never> {
 // error) and strips the #fragment so the token never lingers in the address bar or history.
 export function consumeAuthRedirect(): { resume: Resume } | { error: string } | null {
   if (typeof window === 'undefined') return null;
-  const result = parseRedirect(window.location.hash, readPending()?.state ?? null, DRIVE_SCOPE);
+  const pending = readPending();
+  const result = parseRedirect(window.location.hash, pending?.state ?? null, DRIVE_SCOPE);
   if (result === null) return null;
-  const resume = readPending()?.resume ?? null;
   sessionStorage.removeItem(PENDING_KEY);
   history.replaceState(null, '', window.location.pathname + window.location.search);
+  // This tab never started a sign-in, so the fragment came from someone else's link (or a stale
+  // tab). Strip it and ignore it — reporting an error here would let any cross-site link flag the
+  // connection needsReconnect and skip an auto-backup.
+  if (pending === null) return null;
   if (result.kind === 'error') return { error: result.error };
   storeCachedToken(result.token, result.expiresIn);
-  return { resume };
+  return { resume: pending.resume };
 }
 
 export async function requestToken(opts: {

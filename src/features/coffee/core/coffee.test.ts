@@ -106,6 +106,24 @@ test('isMovement guards the seed JSON at the trust boundary', () => {
   expect(isMovement({ delta: -1, price: 0, at: 1 })).toBe(false); // missing id
   expect(isMovement(null)).toBe(false);
   expect(isMovement('nope')).toBe(false);
+  // Same invariants as the UI write path: whole capsules, integer non-negative satang, integer ms.
+  expect(isMovement({ ...ok, delta: 0.25 })).toBe(false);
+  expect(isMovement({ ...ok, price: -550 })).toBe(false);
+  expect(isMovement({ ...ok, price: 12.5 })).toBe(false);
+  expect(isMovement({ ...ok, at: 1.5 })).toBe(false);
+  // Text columns are NOT NULL in SQLite — a non-string would fail the whole import batch.
+  expect(isMovement({ ...ok, shop: { evil: true } })).toBe(false);
+  expect(isMovement({ ...ok, brand: 5 })).toBe(false);
+});
+
+test('parseBackup drops rows outside the write-path invariants, keeps legacy rows', () => {
+  // 1e400 parses to Infinity — must not reach the stock/spend reducers.
+  const text = '[{"id":"inf","shop":"","brand":"","beanName":"","delta":1e400,"price":0,"at":1}]';
+  expect(parseBackup(text)).toEqual([]);
+  // A pre-brand/beanName backup row still restores, with the DB's '' defaults.
+  expect(parseBackup('[{"id":"old","shop":"Shopee","delta":10,"price":45000,"at":1}]')).toEqual([
+    { id: 'old', shop: 'Shopee', brand: '', beanName: '', delta: 10, price: 45000, at: 1 },
+  ]);
 });
 
 test('parseBahtToSatang rounds baht to integer satang, rejects junk', () => {

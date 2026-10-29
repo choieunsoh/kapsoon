@@ -37,12 +37,24 @@ export function parseBackup(text: string): Movement[] | null {
     return null;
   }
 
-  if (Array.isArray(data)) return data.filter(isMovement);
+  if (Array.isArray(data)) return rows(data);
   if (typeof data === 'object' && data !== null && 'movements' in data) {
     const { movements } = data;
-    if (Array.isArray(movements)) return movements.filter(isMovement);
+    if (Array.isArray(movements)) return rows(movements);
   }
   return null;
+}
+
+// Backups written before brand/beanName existed lack those keys; default absent text columns to ''
+// (the DB default) so old files still restore. A present-but-wrong type still fails isMovement.
+function rows(list: unknown[]): Movement[] {
+  const out: Movement[] = [];
+  for (const v of list) {
+    const row =
+      typeof v === 'object' && v !== null ? { shop: '', brand: '', beanName: '', ...v } : v;
+    if (isMovement(row)) out.push(row);
+  }
+  return out;
 }
 
 // How stale a backup gets before the app quietly says so. Days, not entries: one timestamp to
